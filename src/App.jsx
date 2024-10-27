@@ -37,7 +37,6 @@ function calculateMA(data, period) {
 
 
 function calculate50DayBreadth(data) {
-  console.log(data);
   const indexData = data.index;
   const constituentsData = data.constituents;
   
@@ -64,7 +63,6 @@ function calculate50DayBreadth(data) {
 }
 
 function calculateNetHighLow(data) {
-  console.log(data);
   const indexData = data.index;
   const constituentsData = data.constituents;
 
@@ -78,6 +76,12 @@ function calculateNetHighLow(data) {
   });
 
   return netHighLow;
+}
+function buildBreadthChart(data,chart) {
+  
+  const breadthSeries = chart.addLineSeries();
+  const breath = calculate50DayBreadth(data)          
+  breadthSeries.setData(breath);
 }
 
 export function App() {
@@ -106,7 +110,7 @@ export function App() {
         const indexKline = data.index;
 
         if (chartContainerRef.current && indexKline.length > 0) {
-          const indexChart = createChart(document.getElementById('index-chart'), {
+          const mainChart = createChart(document.getElementById('index-chart'), {
             width: chartContainerRef.current.clientWidth,
             height: 400,
             layout: {
@@ -126,109 +130,12 @@ export function App() {
               secondsVisible: false,
             },
           });
-        
-
-          const mainSeries = indexChart.addCandlestickSeries({
-            upColor: '#26a69a',
-            downColor: '#ef5350',
-            borderVisible: false,
-            wickUpColor: '#26a69a',
-            wickDownColor: '#ef5350',
-            priceScaleId: 'index',
-          });
-
-          const volumeSeries = indexChart.addHistogramSeries({
-            color: '#26a69a',
-            priceFormat: {
-              type: 'volume',
-            },
-            priceScaleId: 'volume',
-            scaleMargins: {
-              top: 0.9,
-              bottom: 0,
-            },
-          });
-
-          // 设置成交量的独立价格尺度
-          indexChart.priceScale('volume').applyOptions({
-            scaleMargins: {
-              top: 0.9,
-              bottom: 0,
-            },
-          });
-
-          // 添加移动平均线
-          const ma5Series = indexChart.addLineSeries({
-            color: '#2962FF',
-            lineWidth: 2,
-            title: 'MA5',
-            priceScaleId: 'ma5',
-          });
-
-          const ma10Series = indexChart.addLineSeries({
-            color: '#2962FF',
-            lineWidth: 2,
-            title: 'MA10',
-          });
-
-          const ma20Series = indexChart.addLineSeries({
-            color: '#FF6D00',
-            lineWidth: 2,
-            title: 'MA20',
-            priceScaleId: 'ma20',
-          });
-
-          const ma50Series = indexChart.addLineSeries({
-            color: '#FF6D00',
-            lineWidth: 2,
-            title: 'MA50',
-            priceScaleId: 'ma50',
-          }); 
-
-          const ma200Series = indexChart.addLineSeries({
-            color: '#FF6D00',
-            lineWidth: 2,
-            title: 'MA200',
-            priceScaleId: 'ma200',
-          }); 
-
-          // 转换数据格式
-          const formattedCandlestickData = indexKline.map(item => ({
-            time: new Date(item.time_key).getTime() / 1000,
-            open: item.open,
-            high: item.high,
-            low: item.low,
-            close: item.close
-          }));
-
-          const formattedVolumeData = indexKline.map(item => ({
-            time: new Date(item.time_key).getTime() / 1000,
-            value: item.turnover,
-            color: item.close > item.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
-          }));
-
-          // 计算移动平均线数据
-          const ma5Data = calculateMA(formattedCandlestickData, 5);
-          const ma10Data = calculateMA(formattedCandlestickData, 10);
-          const ma20Data = calculateMA(formattedCandlestickData, 20);
-          const ma50Data = calculateMA(formattedCandlestickData, 50);
-          const ma200Data = calculateMA(formattedCandlestickData, 200);
-
-
-          mainSeries.setData(formattedCandlestickData);
-          volumeSeries.setData(formattedVolumeData);
-          ma5Series.setData(ma5Data);
-          ma10Series.setData(ma10Data);
-          ma20Series.setData(ma20Data);
-          ma50Series.setData(ma50Data);
-          ma200Series.setData(ma200Data);
-          indexChart.timeScale().fitContent();
-
+      
+          buildMainChart(mainChart, indexKline);
+          mainChart.timeScale().fitContent();
 
           const breadthChart = createChart(document.getElementById('breadth-chart'), { width: chartContainerRef.current.clientWidth,height: 300 });
-          const breadthSeries = breadthChart.addLineSeries();
-          const breath = calculate50DayBreadth(data)          
-          breadthSeries.setData(breath);
+          buildBreadthChart(data,breadthChart);
 
           const synchronizeCharts = (chart1, chart2) => {
             const onVisibleLogicalRangeChanged = () => {
@@ -240,10 +147,10 @@ export function App() {
             chart2.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
         };
     
-        synchronizeCharts(indexChart, breadthChart);
+        synchronizeCharts(mainChart, breadthChart);
           // 清理函数
           return () => {
-            indexChart.remove();
+            mainChart.remove();
             breadthChart.remove();
           };
         }
@@ -269,3 +176,103 @@ export function App() {
 
   return <div ref={chartContainerRef} /> ;
 }
+function buildMainChart(mainChart, indexKline) {
+  buildIndex(mainChart, indexKline);
+  buildMa(mainChart, indexKline);
+  buildVolume(indexKline, mainChart);
+}
+
+function buildVolume(indexKline, indexChart) {
+  const formattedVolumeData = indexKline.map(item => ({
+    time: new Date(item.time_key).getTime() / 1000,
+    value: item.turnover,
+    color: item.close > item.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
+  }));
+  const volumeSeries = indexChart.addHistogramSeries({
+    color: '#26a69a',
+    priceFormat: {
+      type: 'volume',
+    },
+    priceScaleId: 'volume',
+    scaleMargins: {
+      top: 0.9,
+      bottom: 0,
+    },
+  });
+
+  // 设置成交量的独立价格尺度
+  indexChart.priceScale('volume').applyOptions({
+    scaleMargins: {
+      top: 0.9,
+      bottom: 0,
+    },
+  });
+  volumeSeries.setData(formattedVolumeData);
+}
+
+function buildIndex(indexChart, indexKline) {
+  const formattedCandlestickData = indexKline.map(item => ({
+    time: new Date(item.time_key).getTime() / 1000,
+    open: item.open,
+    high: item.high,
+    low: item.low,
+    close: item.close
+  }));
+  const mainSeries = indexChart.addCandlestickSeries({
+    upColor: '#26a69a',
+    downColor: '#ef5350',
+    borderVisible: false,
+    wickUpColor: '#26a69a',
+    wickDownColor: '#ef5350',
+    priceScaleId: 'index',
+  });
+  mainSeries.setData(formattedCandlestickData);
+}
+
+function buildMa(indexChart, indexKline) {
+  const ma5Series = indexChart.addLineSeries({
+    color: '#2962FF',
+    lineWidth: 2,
+    title: 'MA5',
+    priceScaleId: 'ma5',
+  });
+
+  const ma10Series = indexChart.addLineSeries({
+    color: '#2962FF',
+    lineWidth: 2,
+    title: 'MA10',
+  });
+
+  const ma20Series = indexChart.addLineSeries({
+    color: '#FF6D00',
+    lineWidth: 2,
+    title: 'MA20',
+    priceScaleId: 'ma20',
+  });
+
+  const ma50Series = indexChart.addLineSeries({
+    color: '#FF6D00',
+    lineWidth: 2,
+    title: 'MA50',
+    priceScaleId: 'ma50',
+  });
+
+  const ma200Series = indexChart.addLineSeries({
+    color: '#FF6D00',
+    lineWidth: 2,
+    title: 'MA200',
+    priceScaleId: 'ma200',
+  });
+  // 计算移动平均线数据
+  const ma5Data = calculateMovingAverage(indexKline, 5);
+  const ma10Data = calculateMovingAverage(indexKline, 10);
+  const ma20Data = calculateMovingAverage(indexKline, 20);
+  const ma50Data = calculateMovingAverage(indexKline, 50);
+  const ma200Data = calculateMovingAverage(indexKline, 200);
+  ma5Series.setData(ma5Data);
+  ma10Series.setData(ma10Data);
+  ma20Series.setData(ma20Data);
+  ma50Series.setData(ma50Data);
+  ma200Series.setData(ma200Data);
+}
+
