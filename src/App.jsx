@@ -1,6 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
 
+
+function calculateMovingAverage(data, period) {
+  const movingAverage = [];
+  for (let i = 0; i < data.length; i++) {
+      if (i < period - 1) {
+          movingAverage.push({ time: data[i].time_key, value: null });
+          continue;
+      }
+      const sum = data.slice(i - period + 1, i + 1).reduce((acc, val) => acc + val.close, 0);
+      movingAverage.push({ time: data[i].time_key, value: sum / period });
+  }
+  return movingAverage;
+}
+
+
+
 // 辅助函数：计算移动平均线
 function calculateMA(data, period) {
   const result = [];
@@ -18,19 +34,50 @@ function calculateMA(data, period) {
   return result;
 }
 
-function calculateNetHighLow(constituents) {
-  let netHigh = 0;
-  let netLow = 0;
 
-  constituents.forEach(stock => {
-    if (stock.currentClose > stock.previousClose) {
-      netHigh++;
-    } else if (stock.currentClose < stock.previousClose) {
-      netLow++;
-    }
+
+function calculate50DayBreadth(data) {
+  console.log(data);
+  const indexData = data.index;
+  const constituentsData = data.constituents;
+  
+  const breadthData = indexData.map((point, index) => {
+      const previousClose = index > 0 ? indexData[index - 1].close : point.close;
+      const isIndexUp = point.close > previousClose;
+
+      const count = Object.values(constituentsData).filter(stockData => stockData[index] != undefined).filter(stockData => {
+          const stockPoint = stockData[index];
+          const ma = calculateMovingAverage(stockData, 50)[index];
+          
+          const ma50 = ma.value;
+          return isIndexUp ? stockPoint.close > ma50 : stockPoint.close < ma50;
+      }).length;
+
+      const proportion = count / Object.keys(constituentsData).length;
+      return {
+        time: point.time_key,
+        value: isIndexUp ? proportion : -proportion,
+    };
   });
 
-  return { netHigh, netLow };
+  return breadthData;
+}
+
+function calculateNetHighLow(data) {
+  console.log(data);
+  const indexData = data.index;
+  const constituentsData = data.constituents;
+
+  const netHighLow = indexData.map((point, index) => {
+      const highCount = Object.values(constituentsData).filter(stockData => stockData[index].high > stockData[index].low).length;
+      const lowCount = Object.values(constituentsData).filter(stockData => stockData[index].low > stockData[index].high).length;
+      return {
+          time: point.time_key,
+          value: highCount - lowCount,
+      };
+  });
+
+  return netHighLow;
 }
 
 export function App() {
@@ -44,8 +91,8 @@ export function App() {
         // ... existing code ...
         setIsLoading(true);
         const index = 'HK.800000';
-        const startDate = '2024-01-01';
-        const endDate = '2024-01-31';
+        const startDate = '2024-01-27';
+        const endDate = '2024-10-27';
         const response = await fetch(`http://127.0.0.1:5000/api/index_kline?index=${index}&start_date=${startDate}&end_date=${endDate}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -56,10 +103,10 @@ export function App() {
         const constituentsKline = data.constituents; // 所有成份股的历史K线数据
         
         
-        const indexKline = await response.json();
+        const indexKline = data.index;
 
-        if (chartContainerRef.current && data.length > 0) {
-          const chart = createChart(chartContainerRef.current, {
+        if (chartContainerRef.current && indexKline.length > 0) {
+          const indexChart = createChart(document.getElementById('index-chart'), {
             width: chartContainerRef.current.clientWidth,
             height: 400,
             layout: {
@@ -79,16 +126,18 @@ export function App() {
               secondsVisible: false,
             },
           });
+        
 
-          const mainSeries = chart.addCandlestickSeries({
+          const mainSeries = indexChart.addCandlestickSeries({
             upColor: '#26a69a',
             downColor: '#ef5350',
             borderVisible: false,
             wickUpColor: '#26a69a',
             wickDownColor: '#ef5350',
+            priceScaleId: 'index',
           });
 
-          const volumeSeries = chart.addHistogramSeries({
+          const volumeSeries = indexChart.addHistogramSeries({
             color: '#26a69a',
             priceFormat: {
               type: 'volume',
@@ -101,7 +150,7 @@ export function App() {
           });
 
           // 设置成交量的独立价格尺度
-          chart.priceScale('volume').applyOptions({
+          indexChart.priceScale('volume').applyOptions({
             scaleMargins: {
               top: 0.9,
               bottom: 0,
@@ -109,20 +158,42 @@ export function App() {
           });
 
           // 添加移动平均线
-          const ma7Series = chart.addLineSeries({
+          const ma5Series = indexChart.addLineSeries({
             color: '#2962FF',
             lineWidth: 2,
-            title: 'MA7',
+            title: 'MA5',
+            priceScaleId: 'ma5',
           });
 
-          const ma21Series = chart.addLineSeries({
+          const ma10Series = indexChart.addLineSeries({
+            color: '#2962FF',
+            lineWidth: 2,
+            title: 'MA10',
+          });
+
+          const ma20Series = indexChart.addLineSeries({
             color: '#FF6D00',
             lineWidth: 2,
-            title: 'MA21',
+            title: 'MA20',
+            priceScaleId: 'ma20',
           });
 
+          const ma50Series = indexChart.addLineSeries({
+            color: '#FF6D00',
+            lineWidth: 2,
+            title: 'MA50',
+            priceScaleId: 'ma50',
+          }); 
+
+          const ma200Series = indexChart.addLineSeries({
+            color: '#FF6D00',
+            lineWidth: 2,
+            title: 'MA200',
+            priceScaleId: 'ma200',
+          }); 
+
           // 转换数据格式
-          const formattedCandlestickData = data.map(item => ({
+          const formattedCandlestickData = indexKline.map(item => ({
             time: new Date(item.time_key).getTime() / 1000,
             open: item.open,
             high: item.high,
@@ -130,26 +201,50 @@ export function App() {
             close: item.close
           }));
 
-          const formattedVolumeData = data.map(item => ({
+          const formattedVolumeData = indexKline.map(item => ({
             time: new Date(item.time_key).getTime() / 1000,
             value: item.turnover,
             color: item.close > item.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
           }));
 
           // 计算移动平均线数据
-          const ma7Data = calculateMA(formattedCandlestickData, 7);
-          const ma21Data = calculateMA(formattedCandlestickData, 21);
+          const ma5Data = calculateMA(formattedCandlestickData, 5);
+          const ma10Data = calculateMA(formattedCandlestickData, 10);
+          const ma20Data = calculateMA(formattedCandlestickData, 20);
+          const ma50Data = calculateMA(formattedCandlestickData, 50);
+          const ma200Data = calculateMA(formattedCandlestickData, 200);
+
 
           mainSeries.setData(formattedCandlestickData);
           volumeSeries.setData(formattedVolumeData);
-          ma7Series.setData(ma7Data);
-          ma21Series.setData(ma21Data);
+          ma5Series.setData(ma5Data);
+          ma10Series.setData(ma10Data);
+          ma20Series.setData(ma20Data);
+          ma50Series.setData(ma50Data);
+          ma200Series.setData(ma200Data);
+          indexChart.timeScale().fitContent();
 
-          chart.timeScale().fitContent();
 
+          const breadthChart = createChart(document.getElementById('breadth-chart'), { width: chartContainerRef.current.clientWidth,height: 300 });
+          const breadthSeries = breadthChart.addLineSeries();
+          const breath = calculate50DayBreadth(data)          
+          breadthSeries.setData(breath);
+
+          const synchronizeCharts = (chart1, chart2) => {
+            const onVisibleLogicalRangeChanged = () => {
+                const logicalRange = chart1.timeScale().getVisibleLogicalRange();
+                chart2.timeScale().setVisibleLogicalRange(logicalRange);
+            };
+    
+            chart1.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
+            chart2.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
+        };
+    
+        synchronizeCharts(indexChart, breadthChart);
           // 清理函数
           return () => {
-            chart.remove();
+            indexChart.remove();
+            breadthChart.remove();
           };
         }
       } catch (error) {
@@ -172,5 +267,5 @@ export function App() {
     return <div>错误: {error}</div>;
   }
 
-  return <div ref={chartContainerRef} style={{ width: '100%', height: '400px' }} />;
+  return <div ref={chartContainerRef} /> ;
 }
