@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
-
+import './styles.css';
 
 function calculateMovingAverage(data, period) {
   const movingAverage = [];
@@ -128,7 +128,6 @@ export function App() {
               secondsVisible: false,
             },
           });
-        
           buildMainChart(mainChart, indexKline);
           // const nhnlSeries =mainChart.addHistogramSeries({
             // color: 'rgba(255, 82, 82, 0.5)',
@@ -287,6 +286,33 @@ function buildIndex(indexChart, indexKline) {
     priceScaleId: 'index',
   });
   mainSeries.setData(formattedCandlestickData);
+
+  // 订阅鼠标移动事件
+  indexChart.subscribeCrosshairMove((param) => {
+    const tooltip = document.getElementById('tooltip');
+    if (!param || !param.time || !param.point) {
+      tooltip.style.display = 'none';
+      return;
+    }
+  
+    const price = param.seriesData.get(mainSeries);
+    if (price) {
+      const { open, high, low, close } = price;
+      tooltip.innerHTML = `
+        <div>开盘价: ${open}</div>
+        <div>最高价: ${high}</div>
+        <div>最低价: ${low}</div>
+        <div>收盘价: ${close}</div>
+      `;
+      tooltip.style.display = 'block';
+  
+      // 确保工具提示不与鼠标重叠
+      const offsetX = 10;
+      const offsetY = 10;
+      tooltip.style.left = (param.point.x + offsetX) + 'px';
+      tooltip.style.top = (param.point.y + offsetY) + 'px';
+    }
+  });
 }
 
 function convertToTimestamp(time_key) {
@@ -384,4 +410,5 @@ function calculate52WeekHighLow(stockData) {
   }
   return highLowData;
 }
+
 
