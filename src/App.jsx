@@ -297,44 +297,46 @@ function convertToTimestamp(time_key) {
 
 function buildMa(indexChart, indexKline) {
   const ma5Series = indexChart.addLineSeries({
-    color: '#2962FF',
+    color: '#FF0000', // 红色
     lineWidth: 2,
     title: 'MA5',
     priceScaleId: 'ma5',
   });
 
   const ma10Series = indexChart.addLineSeries({
-    color: '#2962FF',
+    color: '#00FF00', // 绿色
     lineWidth: 2,
     title: 'MA10',
   });
 
   const ma20Series = indexChart.addLineSeries({
-    color: '#FF6D00',
+    color: '#0000FF', // 蓝色
     lineWidth: 2,
     title: 'MA20',
     priceScaleId: 'ma20',
   });
 
   const ma50Series = indexChart.addLineSeries({
-    color: '#FF6D00',
+    color: '#FFA500', // 橙色
     lineWidth: 2,
     title: 'MA50',
     priceScaleId: 'ma50',
   });
 
   const ma200Series = indexChart.addLineSeries({
-    color: '#FF6D00',
+    color: '#800080', // 紫色
     lineWidth: 2,
     title: 'MA200',
     priceScaleId: 'ma200',
   });
+
   // 计算移动平均线数据
   const ma5Data = calculateMovingAverage(indexKline, 5);
   const ma10Data = calculateMovingAverage(indexKline, 10);
   const ma20Data = calculateMovingAverage(indexKline, 20);
   const ma50Data = calculateMovingAverage(indexKline, 50);
   const ma200Data = calculateMovingAverage(indexKline, 200);
+
   ma5Series.setData(ma5Data);
   ma10Series.setData(ma10Data);
   ma20Series.setData(ma20Data);
@@ -382,3 +384,4 @@ function calculate52WeekHighLow(stockData) {
   }
   return highLowData;
 }
+
