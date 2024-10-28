@@ -16,26 +16,6 @@ function calculateMovingAverage(data, period) {
 }
 
 
-
-// 辅助函数：计算移动平均线
-function calculateMA(data, period) {
-  const result = [];
-  for (let i = 0; i < data.length; i++) {
-    if (i < period - 1) {
-      result.push({ time: data[i].time, value: null });
-      continue;
-    }
-    let sum = 0;
-    for (let j = 0; j < period; j++) {
-      sum += data[i - j].close;
-    }
-    result.push({ time: data[i].time, value: sum / period });
-  }
-  return result;
-}
-
-
-
 function calculate50DayBreadth(data) {
   const indexData = data.index;
   const constituentsData = data.constituents;
@@ -54,7 +34,7 @@ function calculate50DayBreadth(data) {
 
       const proportion = count / Object.keys(constituentsData).length;
       return {
-        time: point.time_key,
+        time: Math.floor(convertToTimestamp(point.time_key) / 1000),
         value: isIndexUp ? proportion : -proportion,
     };
   });
@@ -65,18 +45,35 @@ function calculate50DayBreadth(data) {
 function calculateNetHighLow(data) {
   const indexData = data.index;
   const constituentsData = data.constituents;
+  const highLowData = calculate52WeekHighLow(constituentsData);
+  // console.log(highLowData);
+  const netHighLow = indexData.map((point) => {
+    
+      const date = point.time_key // 将时间标准化为日期字符串
+      
+      const dailyData = highLowData.get(date) || {};
+    //   console.log(date,dailyData.filter(stockPoint => {
+    //     console.log(stockPoint.close,stockPoint.high52Week, stockPoint.close > stockPoint.high52Week, stockPoint.close > stockPoint.low52Week);
+    //     return stockPoint.close > stockPoint.high52Week;
+    // }));
+      const highCount = dailyData.filter(stockPoint => {
+        return stockPoint.isNewHigh
+      }).length;
 
-  const netHighLow = indexData.map((point, index) => {
-      const highCount = Object.values(constituentsData).filter(stockData => stockData[index].high > stockData[index].low).length;
-      const lowCount = Object.values(constituentsData).filter(stockData => stockData[index].low > stockData[index].high).length;
+      const lowCount = dailyData.filter(stockPoint => {
+        return stockPoint.isNewLow;
+      }).length;
+      // console.log(point.time_key,highCount,lowCount);
       return {
-          time: point.time_key,
+          time: Math.floor(convertToTimestamp(point.time_key) / 1000),
           value: highCount - lowCount,
       };
   });
-
+  console.log(netHighLow[netHighLow.length - 1]);
   return netHighLow;
 }
+
+
 function buildBreadthChart(data,chart) {
   
   const breadthSeries = chart.addLineSeries();
@@ -95,7 +92,7 @@ export function App() {
         // ... existing code ...
         setIsLoading(true);
         const index = 'HK.800000';
-        const startDate = '2024-01-27';
+        const startDate = '2023-01-27';
         const endDate = '2024-10-27';
         const response = await fetch(`http://127.0.0.1:5000/api/index_kline?index=${index}&start_date=${startDate}&end_date=${endDate}`);
         if (!response.ok) {
@@ -108,6 +105,7 @@ export function App() {
         
         
         const indexKline = data.index;
+        console.log(indexKline,"====");
 
         if (chartContainerRef.current && indexKline.length > 0) {
           const mainChart = createChart(document.getElementById('index-chart'), {
@@ -130,13 +128,65 @@ export function App() {
               secondsVisible: false,
             },
           });
-      
+        
           buildMainChart(mainChart, indexKline);
+          // const nhnlSeries =mainChart.addHistogramSeries({
+            // color: 'rgba(255, 82, 82, 0.5)',
+            // priceScaleId: '',
+        // });
+        // const netHighLowData = calculateNetHighLow(data);
+        // nhnlSeries.setData(netHighLowData);
           mainChart.timeScale().fitContent();
 
-          const breadthChart = createChart(document.getElementById('breadth-chart'), { width: chartContainerRef.current.clientWidth,height: 300 });
+          const breadthChart = createChart(document.getElementById('breadth-chart'), { width: chartContainerRef.current.clientWidth,height: 100 });
           buildBreadthChart(data,breadthChart);
-
+          const weekChart = createChart(document.getElementById('52week-chart'), { width: chartContainerRef.current.clientWidth,height: 100 });
+          build52WeekChart(data,weekChart);
+          mainChart.applyOptions({
+            timeScale: {
+              timeVisible: false,
+              tickMarkFormatter: (time, tickMarkType, locale) => {
+                const date = new Date(time * 1000);
+                // 使用 UTC+8 显示日期
+                return date.toLocaleDateString(locale, {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  timeZone: 'Asia/Shanghai' // 设置为中国标准时间
+                });
+              }
+            }
+          });
+          breadthChart.applyOptions({
+            timeScale: {
+              timeVisible: false,
+              tickMarkFormatter: (time, tickMarkType, locale) => {
+                const date = new Date(time * 1000);
+                // 使用 UTC+8 显示日期
+                return date.toLocaleDateString(locale, {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  timeZone: 'Asia/Shanghai' // 设置为中国标准时间
+                });
+              }
+            }
+          });
+          weekChart.applyOptions({
+            timeScale: {
+              timeVisible: false,
+              tickMarkFormatter: (time, tickMarkType, locale) => {
+                const date = new Date(time * 1000);
+                // 使用 UTC+8 显示日期
+                return date.toLocaleDateString(locale, {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  timeZone: 'Asia/Shanghai' // 设置为中国标准时间
+                });
+              }
+            }
+          });
           const synchronizeCharts = (chart1, chart2) => {
             const onVisibleLogicalRangeChanged = () => {
                 const logicalRange = chart1.timeScale().getVisibleLogicalRange();
@@ -148,6 +198,7 @@ export function App() {
         };
     
         synchronizeCharts(mainChart, breadthChart);
+        synchronizeCharts(mainChart, weekChart);
           // 清理函数
           return () => {
             mainChart.remove();
@@ -182,9 +233,16 @@ function buildMainChart(mainChart, indexKline) {
   buildVolume(indexKline, mainChart);
 }
 
+function build52WeekChart(data,weekChart) {
+  const netHighLowSeries = weekChart.addHistogramSeries();
+  
+  const netHighLow = calculateNetHighLow(data);
+  netHighLowSeries.setData(netHighLow);
+}
+
 function buildVolume(indexKline, indexChart) {
   const formattedVolumeData = indexKline.map(item => ({
-    time: new Date(item.time_key).getTime() / 1000,
+    time: Math.floor(convertToTimestamp(item.time_key) / 1000),
     value: item.turnover,
     color: item.close > item.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
   }));
@@ -193,11 +251,7 @@ function buildVolume(indexKline, indexChart) {
     priceFormat: {
       type: 'volume',
     },
-    priceScaleId: 'volume',
-    scaleMargins: {
-      top: 0.9,
-      bottom: 0,
-    },
+    priceScaleId: 'volume'
   });
 
   // 设置成交量的独立价格尺度
@@ -211,13 +265,19 @@ function buildVolume(indexKline, indexChart) {
 }
 
 function buildIndex(indexChart, indexKline) {
-  const formattedCandlestickData = indexKline.map(item => ({
-    time: new Date(item.time_key).getTime() / 1000,
-    open: item.open,
-    high: item.high,
-    low: item.low,
-    close: item.close
-  }));
+  const formattedCandlestickData = indexKline.map(item => {
+    const utc8Time = convertToTimestamp(item.time_key); // 加上8小时的偏移
+
+    return (
+      {
+      time: Math.floor(utc8Time / 1000), // 确保转换为秒
+      open: item.open,
+      high: item.high,
+      low: item.low,
+      close: item.close
+    })
+  });
+  console.log(formattedCandlestickData,"candlestick");
   const mainSeries = indexChart.addCandlestickSeries({
     upColor: '#26a69a',
     downColor: '#ef5350',
@@ -227,6 +287,12 @@ function buildIndex(indexChart, indexKline) {
     priceScaleId: 'index',
   });
   mainSeries.setData(formattedCandlestickData);
+}
+
+function convertToTimestamp(time_key) {
+  const date = new Date(time_key);
+  const utc8Time = date.getTime() + 8 * 60 * 60 * 1000; // 加上8小时的偏移
+  return utc8Time;
 }
 
 function buildMa(indexChart, indexKline) {
@@ -276,3 +342,43 @@ function buildMa(indexChart, indexKline) {
   ma200Series.setData(ma200Data);
 }
 
+
+function calculate52WeekHighLow(stockData) {
+  const period = 52 * 5; // 假设每周5个交易日
+  const highLowData = new Map();
+
+  for (const [symbol, dailyData] of Object.entries(stockData)) {
+      const dateMap = new Map();
+      
+      // 将 dailyData 转换为 Map，以日期为键
+      for (const entry of Object.values(dailyData)) {
+          dateMap.set(entry.time_key, entry);
+      }
+
+      const dates = Array.from(dateMap.keys()).sort(); // 获取并排序日期
+
+      for (let i = 0; i < dates.length; i++) {
+          const date = dates[i];
+          const start = Math.max(0, i - period + 1);
+          const end = i + 1;
+          const periodDates = dates.slice(start, end);
+          const periodData = periodDates.map(d => dateMap.get(d));
+          const high52Week = Math.max(...periodData.map(d => d.high));
+          const low52Week = Math.min(...periodData.map(d => d.low));
+
+          if (!highLowData.has(date)) {
+              highLowData.set(date, []);
+          }
+
+          highLowData.get(date).push({
+              symbol,
+              ...dateMap.get(date),
+              high52Week,
+              low52Week,
+              isNewHigh: dateMap.get(date).high == high52Week ,
+              isNewLow: dateMap.get(date).low == low52Week ,
+          });
+      }
+  }
+  return highLowData;
+}
