@@ -82,34 +82,34 @@ function buildBreadthChart(data,chart) {
 }
 
 export function App() {
+
   const chartContainerRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState('HK.800000');
 
   useEffect(() => {
-    const fetchData = async () => {
+
+    const fetchChartData = async (index) => {
       try {
-        // ... existing code ...
         setIsLoading(true);
-        const index = 'HK.800000';
-        const startDate = '2023-01-27';
-        const endDate = '2024-10-27';
+        const endDate = new Date().toISOString().split('T')[0];
+        const startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        
         const response = await fetch(`http://127.0.0.1:5000/api/index_kline?index=${index}&start_date=${startDate}&end_date=${endDate}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        
-        // 处理返回的数据
-        const constituentsKline = data.constituents; // 所有成份股的历史K线数据
-        
-        
         const indexKline = data.index;
-        console.log(indexKline,"====");
+        
+        
+          // 清除旧的图表
+          const oldCharts = document.querySelectorAll('.tv-lightweight-charts');
+          oldCharts.forEach(chart => chart.remove());
 
-        if (chartContainerRef.current && indexKline.length > 0) {
           const mainChart = createChart(document.getElementById('index-chart'), {
-            width: chartContainerRef.current.clientWidth,
+            width: document.getElementById('index-chart').clientWidth,
             height: 400,
             layout: {
               background: { type: ColorType.Solid, color: 'white' },
@@ -128,19 +128,15 @@ export function App() {
               secondsVisible: false,
             },
           });
+          
           buildMainChart(mainChart, indexKline);
-          // const nhnlSeries =mainChart.addHistogramSeries({
-            // color: 'rgba(255, 82, 82, 0.5)',
-            // priceScaleId: '',
-        // });
-        // const netHighLowData = calculateNetHighLow(data);
-        // nhnlSeries.setData(netHighLowData);
           mainChart.timeScale().fitContent();
 
-          const breadthChart = createChart(document.getElementById('breadth-chart'), { width: chartContainerRef.current.clientWidth,height: 100 });
+          const breadthChart = createChart(document.getElementById('breadth-chart'), { width: document.getElementById('breadth-chart').clientWidth,height: 100 });
           buildBreadthChart(data,breadthChart);
-          const weekChart = createChart(document.getElementById('52week-chart'), { width: chartContainerRef.current.clientWidth,height: 100 });
+          const weekChart = createChart(document.getElementById('52week-chart'), { width: document.getElementById('52week-chart').clientWidth,height: 100 });
           build52WeekChart(data,weekChart);
+
           mainChart.applyOptions({
             timeScale: {
               timeVisible: false,
@@ -191,11 +187,11 @@ export function App() {
                 const logicalRange = chart1.timeScale().getVisibleLogicalRange();
                 chart2.timeScale().setVisibleLogicalRange(logicalRange);
             };
-    
+      
             chart1.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
             chart2.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
         };
-    
+      
         synchronizeCharts(mainChart, breadthChart);
         synchronizeCharts(mainChart, weekChart);
           // 清理函数
@@ -203,7 +199,7 @@ export function App() {
             mainChart.remove();
             breadthChart.remove();
           };
-        }
+        
       } catch (error) {
         console.error('获取数据时出错:', error);
         setError(error.message);
@@ -212,10 +208,13 @@ export function App() {
       }
     };
 
-    fetchData();
-  }, []);
+    fetchChartData(selectedIndex);
+  }, [selectedIndex]);
 
-  
+  const handleIndexChange = (event) => {
+    setSelectedIndex(event.target.value);
+  };
+
   if (isLoading) {
     return <div>加载中...</div>;
   }
@@ -224,8 +223,21 @@ export function App() {
     return <div>错误: {error}</div>;
   }
 
-  return <div ref={chartContainerRef} /> ;
+  return (
+    <div>
+      <select id="index-selector" onChange={handleIndexChange} value={selectedIndex}>
+        <option value="HK.800000">恒生指数</option>
+        <option value="HK.800700">恒生科技指数</option>
+      </select>
+      <div ref={chartContainerRef}>
+        <div id="index-chart"></div>
+        <div id="breadth-chart"></div>
+        <div id="52week-chart"></div>
+      </div>
+    </div>
+  );
 }
+
 function buildMainChart(mainChart, indexKline) {
   buildIndex(mainChart, indexKline);
   buildMa(mainChart, indexKline);
