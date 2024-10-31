@@ -3226,7 +3226,7 @@ levn@~0.3.0:
     prelude-ls "~1.1.2"
     type-check "~0.3.2"
 
-lightweight-charts@^4.0.0:
+lightweight-charts@^4.2.0:
   version "4.2.1"
   resolved "https://registry.npmjs.org/lightweight-charts/-/lightweight-charts-4.2.1.tgz"
   integrity sha512-nE2zCZ5Gp7KZbVHUJi6QhQLkYRvYyxsQTnSLEXIFmc8iHOFBT4rk/Dbyecq+CLW59FNuoCPNOYjZnS63/uHDrA==

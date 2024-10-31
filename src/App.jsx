@@ -6,11 +6,11 @@ function calculateMovingAverage(data, period) {
   const movingAverage = [];
   for (let i = 0; i < data.length; i++) {
       if (i < period - 1) {
-          movingAverage.push({ time: data[i].time_key, value: null });
+          movingAverage.push({ time: Math.floor(convertToTimestamp(data[i].time_key) / 1000), value: null });
           continue;
       }
       const sum = data.slice(i - period + 1, i + 1).reduce((acc, val) => acc + val.close, 0);
-      movingAverage.push({ time: data[i].time_key, value: sum / period });
+      movingAverage.push({ time: Math.floor(convertToTimestamp(data[i].time_key) / 1000), value: sum / period });
   }
   return movingAverage;
 }
@@ -46,16 +46,13 @@ function calculateNetHighLow(data) {
   const indexData = data.index;
   const constituentsData = data.constituents;
   const highLowData = calculate52WeekHighLow(constituentsData);
-  // console.log(highLowData);
+
   const netHighLow = indexData.map((point) => {
     
       const date = point.time_key // 将时间标准化为日期字符串
       
       const dailyData = highLowData.get(date) || {};
-    //   console.log(date,dailyData.filter(stockPoint => {
-    //     console.log(stockPoint.close,stockPoint.high52Week, stockPoint.close > stockPoint.high52Week, stockPoint.close > stockPoint.low52Week);
-    //     return stockPoint.close > stockPoint.high52Week;
-    // }));
+    
       const highCount = dailyData.filter(stockPoint => {
         return stockPoint.isNewHigh
       }).length;
@@ -63,13 +60,13 @@ function calculateNetHighLow(data) {
       const lowCount = dailyData.filter(stockPoint => {
         return stockPoint.isNewLow;
       }).length;
-      // console.log(point.time_key,highCount,lowCount);
+
       return {
           time: Math.floor(convertToTimestamp(point.time_key) / 1000),
           value: highCount - lowCount,
       };
   });
-  console.log(netHighLow[netHighLow.length - 1]);
+
   return netHighLow;
 }
 
@@ -102,6 +99,7 @@ export function App() {
         }
         const data = await response.json();
         const indexKline = data.index;
+
         
         
           // 清除旧的图表
@@ -128,7 +126,7 @@ export function App() {
               secondsVisible: false,
             },
           });
-          
+
           buildMainChart(mainChart, indexKline);
           mainChart.timeScale().fitContent();
 
@@ -276,19 +274,19 @@ function buildVolume(indexKline, indexChart) {
 }
 
 function buildIndex(indexChart, indexKline) {
-  const formattedCandlestickData = indexKline.map(item => {
-    const utc8Time = convertToTimestamp(item.time_key); // 加上8小时的偏移
 
+  const formattedCandlestickData = indexKline.map(item => {
+    
     return (
       {
-      time: Math.floor(utc8Time / 1000), // 确保转换为秒
+      time: Math.floor(convertToTimestamp(item.time_key) / 1000), // 确保转换为秒
       open: item.open,
       high: item.high,
       low: item.low,
       close: item.close
     })
   });
-  console.log(formattedCandlestickData,"candlestick");
+
   const mainSeries = indexChart.addCandlestickSeries({
     upColor: '#26a69a',
     downColor: '#ef5350',
@@ -370,11 +368,12 @@ function buildMa(indexChart, indexKline) {
 
   // 计算移动平均线数据
   const ma5Data = calculateMovingAverage(indexKline, 5);
+
   const ma10Data = calculateMovingAverage(indexKline, 10);
   const ma20Data = calculateMovingAverage(indexKline, 20);
   const ma50Data = calculateMovingAverage(indexKline, 50);
   const ma200Data = calculateMovingAverage(indexKline, 200);
-
+  
   ma5Series.setData(ma5Data);
   ma10Series.setData(ma10Data);
   ma20Series.setData(ma20Data);
