@@ -72,11 +72,8 @@ function calculateNetHighLow(data) {
 }
 
 
-function buildBreadthChart(data,chart) {
-  
-  const breadthSeries = chart.addLineSeries();
-  const breath = calculate50DayBreadth(data)          
-  breadthSeries.setData(breath);
+function buildBreadthChart(chart) {
+  const breadthSeries = chart.addLineSeries();         
   return breadthSeries;
 }
  class IndexData {
@@ -111,21 +108,21 @@ export function App() {
 
   useEffect(() => {
     chartDataRef.current = chartData;
-    console.log(chartData, "chartData changed!");
+
     if (chartData.length > 0) {
       const indexData = chartData.flatMap(item => item.value.index).sort((a, b) => {
         const timeA = Date.parse(a.time_key);
         const timeB = Date.parse(b.time_key);
         return timeA - timeB;
       });
-      console.log(indexData,"indexData")
+
       if (mainSeriesRef.current&&ma5SeriesRef.current&&ma10SeriesRef.current&&ma20SeriesRef.current&&ma50SeriesRef.current&&ma200SeriesRef.current) {
         const formattedData = cnvertToKLineData(indexData);
-        console.log(formattedData,"formattedData")
+
         mainSeriesRef.current.setData(formattedData);
         setVolumeSeries(indexData, volumeSeriesRef.current);
         const ma5Data = calculateMovingAverage(indexData, 5);
-        console.log(ma5Data,"ma5Data")
+
         ma5SeriesRef.current.setData(ma5Data);
         const ma10Data = calculateMovingAverage(indexData, 10);
         ma10SeriesRef.current.setData(ma10Data);
@@ -152,10 +149,10 @@ export function App() {
             return timeA - timeB;
           });
         }
-        console.log(constituentsData,"constituentsData")
+
         const data = {index: indexData, constituents: constituentsData}
         const breadthData = calculate50DayBreadth(data);
-        console.log(indexData,constituentsData,breadthData,"breadthData")
+
         breadthSeriesRef.current.setData(breadthData);
         const weekData = calculateNetHighLow(data);
         weekSeriesRef.current.setData(weekData);
@@ -168,7 +165,7 @@ export function App() {
           chart1.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
           chart2.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
         };
-        console.log("synchronizeCharts",mainChartRef.current,breadthChartRef.current,weekChartRef.current)
+
         if (mainChartRef.current && breadthChartRef.current) {  
           synchronizeCharts(mainChartRef.current, breadthChartRef.current);
           synchronizeCharts(mainChartRef.current, weekChartRef.current);
@@ -195,7 +192,7 @@ export function App() {
         return;
       }
       const data = chartData[chartData.length-1];
-      console.log(chartData,data,"data")
+
       const currentStartDate = new Date(data.startDate);
 
       // 计算新的 endDate 为 currentStartDate 的前一天
@@ -210,7 +207,7 @@ export function App() {
       const endDate = newEndDate.toISOString().split('T')[0];
       const startDate = newStartDate.toISOString().split('T')[0];
     
-      console.log(`Fetching data from ${startDate} to ${endDate}`);
+
 
 
       const indexData = chartData.find(item => {
@@ -222,7 +219,7 @@ export function App() {
       const moreData = await fetchChartData(index, startDate, endDate);
       const moreIndexData = new IndexData(startDate, endDate ,moreData);
       setChartData(prevData => {
-        console.log(prevData,"prevData")
+
         return [...prevData,moreIndexData]});
     };
 
@@ -233,17 +230,14 @@ export function App() {
       if (isInitializedRef.current) {
         return; // 如果已经初始化过，则不再初始化
       }
-      console.log("init");
+
       try {
         setIsLoading(true);
         const endDate = new Date().toISOString().split('T')[0];
         const startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        // const endDate = '2024-11-3';
-        // const startDate = '2024-1-1';
         const data = await fetchChartData(index, startDate, endDate);
         const indexData = new IndexData(startDate,endDate,data);
         setChartData([indexData]);
-        const indexKline = data.index;
 
         const oldCharts = document.querySelectorAll('.tv-lightweight-charts');
         oldCharts.forEach(chart => chart.remove());
@@ -270,16 +264,13 @@ export function App() {
         });
         mainChart.timeScale().subscribeVisibleLogicalRangeChange(logicalRange => {
           if (logicalRange) {
-            console.log("Current logical range:", logicalRange);
-        
             // 检查是否需要加载更多数据
             if (logicalRange.from < 0) {
-              console.log("Loading more data...");
               debouncedLoadMoreData(index);
             }
           }
         });
-        const {mainSeries,ma5Series,ma10Series,ma20Series,ma50Series,ma200Series,volumeSeries} = buildMainChart(mainChart, indexKline);   
+        const {mainSeries,ma5Series,ma10Series,ma20Series,ma50Series,ma200Series,volumeSeries} = buildMainChart(mainChart);   
         mainSeriesRef.current = mainSeries;
         ma5SeriesRef.current = ma5Series;
         ma10SeriesRef.current = ma10Series;
@@ -288,18 +279,15 @@ export function App() {
         ma200SeriesRef.current = ma200Series;
         volumeSeriesRef.current = volumeSeries;
         mainChartRef.current = mainChart;
-
-
-    
       
         isInitializedRef.current = true;
         const breadthChart = createChart(document.getElementById('breadth-chart'), { width: document.getElementById('breadth-chart').clientWidth, height: 100 });
         breadthChartRef.current = breadthChart;
-        const breadthSeries = buildBreadthChart(data, breadthChart);
+        const breadthSeries = buildBreadthChart(breadthChart);
         breadthSeriesRef.current = breadthSeries;
         const weekChart = createChart(document.getElementById('52week-chart'), { width: document.getElementById('52week-chart').clientWidth, height: 100 });
         weekChartRef.current = weekChart;
-        const weekSeries = build52WeekChart(data, weekChart);
+        const weekSeries = build52WeekChart(weekChart);
         weekSeriesRef.current = weekSeries;
         mainChart.applyOptions({
           timeScale: {
@@ -345,19 +333,6 @@ export function App() {
             }
           }
         });
-
-        // const synchronizeCharts = (chart1, chart2) => {
-        //   const onVisibleLogicalRangeChanged = () => {
-        //     const logicalRange = chart1.timeScale().getVisibleLogicalRange();
-        //     chart2.timeScale().setVisibleLogicalRange(logicalRange);
-        //   };
-
-        //   chart1.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
-        //   chart2.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
-        // };
-
-        // synchronizeCharts(mainChart, breadthChart);
-        // synchronizeCharts(mainChart, weekChart);
 
         return () => {
           mainChart.remove();
@@ -429,23 +404,19 @@ function convertToTimestamp(time_key) {
   return utc8Time;
 }
 
-function buildMainChart(mainChart, indexKline) {
-
-  const mainSeries = buildIndex(mainChart, indexKline);
-  const {ma5Series,ma10Series,ma20Series,ma50Series,ma200Series} = buildMa(mainChart, indexKline);
-  const volumeSeries = buildVolume(indexKline, mainChart);
+function buildMainChart(mainChart) {
+  const mainSeries = buildIndex(mainChart);
+  const {ma5Series,ma10Series,ma20Series,ma50Series,ma200Series} = buildMa(mainChart);
+  const volumeSeries = buildVolume(mainChart);
   return {mainSeries,ma5Series,ma10Series,ma20Series,ma50Series,ma200Series,volumeSeries};
 }
 
-function build52WeekChart(data,weekChart) {
+function build52WeekChart(weekChart) {
   const netHighLowSeries = weekChart.addHistogramSeries();
-  
-  const netHighLow = calculateNetHighLow(data);
-  netHighLowSeries.setData(netHighLow);
   return netHighLowSeries;
 }
 
-function buildVolume(indexKline, indexChart) {
+function buildVolume(indexChart) {
   
   const volumeSeries = indexChart.addHistogramSeries({
     color: '#26a69a',
@@ -455,14 +426,13 @@ function buildVolume(indexKline, indexChart) {
     priceScaleId: 'volume'
   });
 
-  // 设置成交量的独立价格尺度
   indexChart.priceScale('volume').applyOptions({
     scaleMargins: {
       top: 0.9,
       bottom: 0,
     },
   });
-  setVolumeSeries(indexKline, volumeSeries);
+
   return volumeSeries;
 }
 
@@ -475,19 +445,7 @@ function setVolumeSeries(indexKline, volumeSeries) {
   volumeSeries.setData(formattedVolumeData);
 }
 
-function buildIndex(indexChart, indexKline) {
-
-  const formattedCandlestickData = indexKline.map(item => {
-    
-    return (
-      {
-      time: Math.floor(convertToTimestamp(item.time_key) / 1000), // 确保转换为秒
-      open: item.open,
-      high: item.high,
-      low: item.low,
-      close: item.close
-    })
-  });
+function buildIndex(indexChart) {
 
   const mainSeries = indexChart.addCandlestickSeries({
     upColor: '#26a69a',
@@ -497,9 +455,7 @@ function buildIndex(indexChart, indexKline) {
     wickDownColor: '#ef5350',
     priceScaleId: 'index',
   });
-  mainSeries.setData(formattedCandlestickData);
 
-  // 订阅鼠标移动事件
   indexChart.subscribeCrosshairMove((param) => {
     const tooltip = document.getElementById('tooltip');
     if (!param || !param.time || !param.point) {
@@ -528,7 +484,7 @@ function buildIndex(indexChart, indexKline) {
   return mainSeries;
 }
 
-function buildMa(indexChart, indexKline) {
+function buildMa(indexChart) {
   const ma5Series = indexChart.addLineSeries({
     color: '#FF0000', // 红色
     lineWidth: 2,
@@ -562,20 +518,6 @@ function buildMa(indexChart, indexKline) {
     title: 'MA200',
     priceScaleId: 'ma200',
   });
-
-  // 计算移动平均线数据
-  const ma5Data = calculateMovingAverage(indexKline, 5);
-
-  const ma10Data = calculateMovingAverage(indexKline, 10);
-  const ma20Data = calculateMovingAverage(indexKline, 20);
-  const ma50Data = calculateMovingAverage(indexKline, 50);
-  const ma200Data = calculateMovingAverage(indexKline, 200);
-  
-  ma5Series.setData(ma5Data);
-  ma10Series.setData(ma10Data);
-  ma20Series.setData(ma20Data);
-  ma50Series.setData(ma50Data);
-  ma200Series.setData(ma200Data);
   return {ma5Series,ma10Series,ma20Series,ma50Series,ma200Series};
 }
 
