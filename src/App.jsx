@@ -106,6 +106,7 @@ export function App() {
   const weekChartRef = useRef(null);
   const isInitializedRef = useRef(false); 
 
+
   useEffect(() => {
     chartDataRef.current = chartData;
 
@@ -156,19 +157,52 @@ export function App() {
         breadthSeriesRef.current.setData(breadthData);
         const weekData = calculateNetHighLow(data);
         weekSeriesRef.current.setData(weekData);
-        const synchronizeCharts = (chart1, chart2) => {
-          const onVisibleLogicalRangeChanged = () => {
-            const logicalRange = chart1.timeScale().getVisibleLogicalRange();
-            chart2.timeScale().setVisibleLogicalRange(logicalRange);
-          };
-    
-          chart1.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
-          chart2.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
-        };
-
-        if (mainChartRef.current && breadthChartRef.current) {  
-          synchronizeCharts(mainChartRef.current, breadthChartRef.current);
-          synchronizeCharts(mainChartRef.current, weekChartRef.current);
+      
+        function getCrosshairDataPoint(series, param) {
+            if (!param.time) {
+                return null;
+            }
+            const dataPoint = param.seriesData.get(series);
+            return dataPoint || null;
+        }
+      
+        function syncCrosshair(chart, series, dataPoint) {
+          if (dataPoint) {
+              chart.setCrosshairPosition(dataPoint.value, dataPoint.time, series);
+          } else {
+            chart.clearCrosshairPosition();
+          }
+        }
+        
+        if (mainChartRef.current && breadthChartRef.current && weekChartRef.current) {
+          mainChartRef.current.subscribeCrosshairMove(param => {
+            const dataPoint = getCrosshairDataPoint(mainSeriesRef.current, param);
+            syncCrosshair(breadthChartRef.current, breadthSeriesRef.current, dataPoint);
+            syncCrosshair(weekChartRef.current, weekSeriesRef.current, dataPoint);
+          });
+          breadthChartRef.current.subscribeCrosshairMove(param => {
+            const dataPoint = getCrosshairDataPoint(breadthSeriesRef.current, param);
+            
+            syncCrosshair(mainChartRef.current, mainSeriesRef.current, dataPoint);
+            syncCrosshair(weekChartRef.current, weekSeriesRef.current, dataPoint);
+          });
+          weekChartRef.current.subscribeCrosshairMove(param => {
+            const dataPoint = getCrosshairDataPoint(weekSeriesRef.current, param);
+            syncCrosshair(mainChartRef.current, mainSeriesRef.current, dataPoint);
+            syncCrosshair(breadthChartRef.current, breadthSeriesRef.current, dataPoint);
+          });
+          mainChartRef.current.timeScale().subscribeVisibleLogicalRangeChange(timeRange => {
+            breadthChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+            weekChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+          });
+          breadthChartRef.current.timeScale().subscribeVisibleLogicalRangeChange(timeRange => {
+            mainChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+            weekChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+          });
+          weekChartRef.current.timeScale().subscribeVisibleLogicalRangeChange(timeRange => {
+            mainChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+            breadthChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+          });
         }
       }
     }
