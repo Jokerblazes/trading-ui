@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
 import './styles.css';
+import _ from 'lodash';
 
 function calculateMovingAverage(data, period) {
   const movingAverage = [];
@@ -76,6 +77,14 @@ function buildBreadthChart(data,chart) {
   const breadthSeries = chart.addLineSeries();
   const breath = calculate50DayBreadth(data)          
   breadthSeries.setData(breath);
+  return breadthSeries;
+}
+ class IndexData {
+  constructor(startDate,endDate, value) {
+    this.startDate = startDate;
+    this.endDate = endDate;
+    this.value = value;
+  }
 }
 
 export function App() {
@@ -84,120 +93,278 @@ export function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState('HK.800000');
+  const [chartData, setChartData] = useState([]);
+  const chartDataRef = useRef(chartData);
+  const mainChartRef = useRef(null); // 使用 useRef 来存储 mainChart
+  const breadthChartRef = useRef(null);
+  const mainSeriesRef = useRef(null);
+  const ma5SeriesRef = useRef(null);
+  const ma10SeriesRef = useRef(null);
+  const ma20SeriesRef = useRef(null);
+  const ma50SeriesRef = useRef(null);
+  const ma200SeriesRef = useRef(null);
+  const volumeSeriesRef = useRef(null);
+  const breadthSeriesRef = useRef(null);
+  const weekSeriesRef = useRef(null);
+  const weekChartRef = useRef(null);
+  const isInitializedRef = useRef(false); 
 
   useEffect(() => {
+    chartDataRef.current = chartData;
+    console.log(chartData, "chartData changed!");
+    if (chartData.length > 0) {
+      const indexData = chartData.flatMap(item => item.value.index).sort((a, b) => {
+        const timeA = Date.parse(a.time_key);
+        const timeB = Date.parse(b.time_key);
+        return timeA - timeB;
+      });
+      console.log(indexData,"indexData")
+      if (mainSeriesRef.current&&ma5SeriesRef.current&&ma10SeriesRef.current&&ma20SeriesRef.current&&ma50SeriesRef.current&&ma200SeriesRef.current) {
+        const formattedData = cnvertToKLineData(indexData);
+        console.log(formattedData,"formattedData")
+        mainSeriesRef.current.setData(formattedData);
+        setVolumeSeries(indexData, volumeSeriesRef.current);
+        const ma5Data = calculateMovingAverage(indexData, 5);
+        console.log(ma5Data,"ma5Data")
+        ma5SeriesRef.current.setData(ma5Data);
+        const ma10Data = calculateMovingAverage(indexData, 10);
+        ma10SeriesRef.current.setData(ma10Data);
+        const ma20Data = calculateMovingAverage(indexData, 20);
+        ma20SeriesRef.current.setData(ma20Data);
+        const ma50Data = calculateMovingAverage(indexData, 50);
+        ma50SeriesRef.current.setData(ma50Data);
+        const ma200Data = calculateMovingAverage(indexData, 200);
+        ma200SeriesRef.current.setData(ma200Data);
+        const constituentsData = chartData.flatMap(item => Object.entries(item.value.constituents))
+          .reduce((acc, [key, valueArray]) => {
+            if (!acc[key]) {
+              acc[key] = [];
+            }
+            acc[key] = acc[key].concat(valueArray);
+            return acc;
+        }, {});
+    
 
-    const fetchChartData = async (index) => {
+        for (const key in constituentsData) {
+          constituentsData[key].sort((a, b) => {
+            const timeA = Date.parse(a.time_key);
+             const timeB = Date.parse(b.time_key);
+            return timeA - timeB;
+          });
+        }
+        console.log(constituentsData,"constituentsData")
+        const data = {index: indexData, constituents: constituentsData}
+        const breadthData = calculate50DayBreadth(data);
+        console.log(indexData,constituentsData,breadthData,"breadthData")
+        breadthSeriesRef.current.setData(breadthData);
+        const weekData = calculateNetHighLow(data);
+        weekSeriesRef.current.setData(weekData);
+        const synchronizeCharts = (chart1, chart2) => {
+          const onVisibleLogicalRangeChanged = () => {
+            const logicalRange = chart1.timeScale().getVisibleLogicalRange();
+            chart2.timeScale().setVisibleLogicalRange(logicalRange);
+          };
+    
+          chart1.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
+          chart2.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
+        };
+        console.log("synchronizeCharts",mainChartRef.current,breadthChartRef.current,weekChartRef.current)
+        if (mainChartRef.current && breadthChartRef.current) {  
+          synchronizeCharts(mainChartRef.current, breadthChartRef.current);
+          synchronizeCharts(mainChartRef.current, weekChartRef.current);
+        }
+      }
+    }
+
+  }, [chartData]);
+
+  useEffect(() => {
+    const fetchChartData = async (index, startDate, endDate) => {
+      const response = await fetch(`http://127.0.0.1:5000/api/index_kline?index=${index}&start_date=${startDate}&end_date=${endDate}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    };
+
+    const loadMoreData = async (index) => {
+      
+
+      const chartData = chartDataRef.current;
+      if (chartData.length == 0) {
+        return;
+      }
+      const data = chartData[chartData.length-1];
+      console.log(chartData,data,"data")
+      const currentStartDate = new Date(data.startDate);
+
+      // 计算新的 endDate 为 currentStartDate 的前一天
+      const newEndDate = new Date(currentStartDate);
+      newEndDate.setDate(newEndDate.getDate() - 1);
+    
+      // 计算新的 startDate 为 currentStartDate 的前一年的同一天
+      const newStartDate = new Date(currentStartDate);
+      newStartDate.setFullYear(newStartDate.getFullYear() - 1);
+    
+      // 格式化日期为字符串
+      const endDate = newEndDate.toISOString().split('T')[0];
+      const startDate = newStartDate.toISOString().split('T')[0];
+    
+      console.log(`Fetching data from ${startDate} to ${endDate}`);
+
+
+      const indexData = chartData.find(item => {
+        return item.key == `${startDate}-${endDate}`
+      });
+      if (indexData) {
+        return;
+      }
+      const moreData = await fetchChartData(index, startDate, endDate);
+      const moreIndexData = new IndexData(startDate, endDate ,moreData);
+      setChartData(prevData => {
+        console.log(prevData,"prevData")
+        return [...prevData,moreIndexData]});
+    };
+
+
+    const debouncedLoadMoreData = _.debounce(loadMoreData, 1000);
+
+    const initializeChart = async (index) => {
+      if (isInitializedRef.current) {
+        return; // 如果已经初始化过，则不再初始化
+      }
+      console.log("init");
       try {
         setIsLoading(true);
         const endDate = new Date().toISOString().split('T')[0];
         const startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        
-        const response = await fetch(`http://127.0.0.1:5000/api/index_kline?index=${index}&start_date=${startDate}&end_date=${endDate}`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
+        // const endDate = '2024-11-3';
+        // const startDate = '2024-1-1';
+        const data = await fetchChartData(index, startDate, endDate);
+        const indexData = new IndexData(startDate,endDate,data);
+        setChartData([indexData]);
         const indexKline = data.index;
 
+        const oldCharts = document.querySelectorAll('.tv-lightweight-charts');
+        oldCharts.forEach(chart => chart.remove());
+
+        const mainChart = createChart(document.getElementById('index-chart'), {
+          width: document.getElementById('index-chart').clientWidth,
+          height: 400,
+          layout: {
+            background: { type: ColorType.Solid, color: 'white' },
+            textColor: 'black',
+          },
+          grid: {
+            vertLines: { color: 'rgba(197, 203, 206, 0.5)' },
+            horzLines: { color: 'rgba(197, 203, 206, 0.5)' },
+          },
+          rightPriceScale: {
+            borderColor: 'rgba(197, 203, 206, 0.8)',
+          },
+          timeScale: {
+            borderColor: 'rgba(197, 203, 206, 0.8)',
+            timeVisible: true,
+            secondsVisible: false,
+          },
+        });
+        mainChart.timeScale().subscribeVisibleLogicalRangeChange(logicalRange => {
+          if (logicalRange) {
+            console.log("Current logical range:", logicalRange);
         
-        
-          // 清除旧的图表
-          const oldCharts = document.querySelectorAll('.tv-lightweight-charts');
-          oldCharts.forEach(chart => chart.remove());
-
-          const mainChart = createChart(document.getElementById('index-chart'), {
-            width: document.getElementById('index-chart').clientWidth,
-            height: 400,
-            layout: {
-              background: { type: ColorType.Solid, color: 'white' },
-              textColor: 'black',
-            },
-            grid: {
-              vertLines: { color: 'rgba(197, 203, 206, 0.5)' },
-              horzLines: { color: 'rgba(197, 203, 206, 0.5)' },
-            },
-            rightPriceScale: {
-              borderColor: 'rgba(197, 203, 206, 0.8)',
-            },
-            timeScale: {
-              borderColor: 'rgba(197, 203, 206, 0.8)',
-              timeVisible: true,
-              secondsVisible: false,
-            },
-          });
-
-          buildMainChart(mainChart, indexKline);
-          mainChart.timeScale().fitContent();
-
-          const breadthChart = createChart(document.getElementById('breadth-chart'), { width: document.getElementById('breadth-chart').clientWidth,height: 100 });
-          buildBreadthChart(data,breadthChart);
-          const weekChart = createChart(document.getElementById('52week-chart'), { width: document.getElementById('52week-chart').clientWidth,height: 100 });
-          build52WeekChart(data,weekChart);
-
-          mainChart.applyOptions({
-            timeScale: {
-              timeVisible: false,
-              tickMarkFormatter: (time, tickMarkType, locale) => {
-                const date = new Date(time * 1000);
-                // 使用 UTC+8 显示日期
-                return date.toLocaleDateString(locale, {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                  timeZone: 'Asia/Shanghai' // 设置为中国标准时间
-                });
-              }
+            // 检查是否需要加载更多数据
+            if (logicalRange.from < 0) {
+              console.log("Loading more data...");
+              debouncedLoadMoreData(index);
             }
-          });
-          breadthChart.applyOptions({
-            timeScale: {
-              timeVisible: false,
-              tickMarkFormatter: (time, tickMarkType, locale) => {
-                const date = new Date(time * 1000);
-                // 使用 UTC+8 显示日期
-                return date.toLocaleDateString(locale, {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                  timeZone: 'Asia/Shanghai' // 设置为中国标准时间
-                });
-              }
-            }
-          });
-          weekChart.applyOptions({
-            timeScale: {
-              timeVisible: false,
-              tickMarkFormatter: (time, tickMarkType, locale) => {
-                const date = new Date(time * 1000);
-                // 使用 UTC+8 显示日期
-                return date.toLocaleDateString(locale, {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                  timeZone: 'Asia/Shanghai' // 设置为中国标准时间
-                });
-              }
-            }
-          });
-          const synchronizeCharts = (chart1, chart2) => {
-            const onVisibleLogicalRangeChanged = () => {
-                const logicalRange = chart1.timeScale().getVisibleLogicalRange();
-                chart2.timeScale().setVisibleLogicalRange(logicalRange);
-            };
+          }
+        });
+        const {mainSeries,ma5Series,ma10Series,ma20Series,ma50Series,ma200Series,volumeSeries} = buildMainChart(mainChart, indexKline);   
+        mainSeriesRef.current = mainSeries;
+        ma5SeriesRef.current = ma5Series;
+        ma10SeriesRef.current = ma10Series;
+        ma20SeriesRef.current = ma20Series;
+        ma50SeriesRef.current = ma50Series;
+        ma200SeriesRef.current = ma200Series;
+        volumeSeriesRef.current = volumeSeries;
+        mainChartRef.current = mainChart;
+
+
+    
       
-            chart1.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
-            chart2.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
+        isInitializedRef.current = true;
+        const breadthChart = createChart(document.getElementById('breadth-chart'), { width: document.getElementById('breadth-chart').clientWidth, height: 100 });
+        breadthChartRef.current = breadthChart;
+        const breadthSeries = buildBreadthChart(data, breadthChart);
+        breadthSeriesRef.current = breadthSeries;
+        const weekChart = createChart(document.getElementById('52week-chart'), { width: document.getElementById('52week-chart').clientWidth, height: 100 });
+        weekChartRef.current = weekChart;
+        const weekSeries = build52WeekChart(data, weekChart);
+        weekSeriesRef.current = weekSeries;
+        mainChart.applyOptions({
+          timeScale: {
+            timeVisible: false,
+            tickMarkFormatter: (time, tickMarkType, locale) => {
+              const date = new Date(time * 1000);
+              return date.toLocaleDateString(locale, {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                timeZone: 'Asia/Shanghai'
+              });
+            }
+          }
+        });
+
+        breadthChart.applyOptions({
+          timeScale: {
+            tickMarkFormatter: (time, tickMarkType, locale) => {
+              const date = new Date(time * 1000);
+              return date.toLocaleDateString(locale, {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                timeZone: 'Asia/Shanghai'
+              });
+            }
+          }
+        });
+        
+
+        weekChart.applyOptions({
+          timeScale: {
+            timeVisible: false,
+            tickMarkFormatter: (time, tickMarkType, locale) => {
+              const date = new Date(time * 1000);
+              return date.toLocaleDateString(locale, {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                timeZone: 'Asia/Shanghai'
+              });
+            }
+          }
+        });
+
+        // const synchronizeCharts = (chart1, chart2) => {
+        //   const onVisibleLogicalRangeChanged = () => {
+        //     const logicalRange = chart1.timeScale().getVisibleLogicalRange();
+        //     chart2.timeScale().setVisibleLogicalRange(logicalRange);
+        //   };
+
+        //   chart1.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
+        //   chart2.timeScale().subscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChanged);
+        // };
+
+        // synchronizeCharts(mainChart, breadthChart);
+        // synchronizeCharts(mainChart, weekChart);
+
+        return () => {
+          mainChart.remove();
+          breadthChart.remove();
+          weekChart.remove();
         };
-      
-        synchronizeCharts(mainChart, breadthChart);
-        synchronizeCharts(mainChart, weekChart);
-          // 清理函数
-          return () => {
-            mainChart.remove();
-            breadthChart.remove();
-          };
-        
+
       } catch (error) {
         console.error('获取数据时出错:', error);
         setError(error.message);
@@ -206,8 +373,10 @@ export function App() {
       }
     };
 
-    fetchChartData(selectedIndex);
+    initializeChart(selectedIndex);
   }, [selectedIndex]);
+
+
 
   const handleIndexChange = (event) => {
     setSelectedIndex(event.target.value);
@@ -234,12 +403,38 @@ export function App() {
       </div>
     </div>
   );
+
+  function cnvertToKLineData(moreIndexKline) {
+    return moreIndexKline.map(item => {
+      if (item.time_key && item.open !== null && item.high !== null && item.low !== null && item.close !== null) {
+        return {
+          time: Math.floor(convertToTimestamp(item.time_key) / 1000), // 确保时间是有效的 Unix 时间戳
+          open: item.open,
+          high: item.high,
+          low: item.low,
+          close: item.close
+        };
+      } else {
+        console.warn('Invalid data point:', item);
+        return null; // 或者根据需要处理无效数据
+      }
+    }).filter(item => item !== null); 
+
+  }
+}
+
+function convertToTimestamp(time_key) {
+  const date = new Date(time_key);
+  const utc8Time = date.getTime() + 8 * 60 * 60 * 1000;
+  return utc8Time;
 }
 
 function buildMainChart(mainChart, indexKline) {
-  buildIndex(mainChart, indexKline);
-  buildMa(mainChart, indexKline);
-  buildVolume(indexKline, mainChart);
+
+  const mainSeries = buildIndex(mainChart, indexKline);
+  const {ma5Series,ma10Series,ma20Series,ma50Series,ma200Series} = buildMa(mainChart, indexKline);
+  const volumeSeries = buildVolume(indexKline, mainChart);
+  return {mainSeries,ma5Series,ma10Series,ma20Series,ma50Series,ma200Series,volumeSeries};
 }
 
 function build52WeekChart(data,weekChart) {
@@ -247,14 +442,11 @@ function build52WeekChart(data,weekChart) {
   
   const netHighLow = calculateNetHighLow(data);
   netHighLowSeries.setData(netHighLow);
+  return netHighLowSeries;
 }
 
 function buildVolume(indexKline, indexChart) {
-  const formattedVolumeData = indexKline.map(item => ({
-    time: Math.floor(convertToTimestamp(item.time_key) / 1000),
-    value: item.turnover,
-    color: item.close > item.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
-  }));
+  
   const volumeSeries = indexChart.addHistogramSeries({
     color: '#26a69a',
     priceFormat: {
@@ -270,6 +462,16 @@ function buildVolume(indexKline, indexChart) {
       bottom: 0,
     },
   });
+  setVolumeSeries(indexKline, volumeSeries);
+  return volumeSeries;
+}
+
+function setVolumeSeries(indexKline, volumeSeries) {
+  const formattedVolumeData = indexKline.map(item => ({
+    time: Math.floor(convertToTimestamp(item.time_key) / 1000),
+    value: item.turnover,
+    color: item.close > item.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)'
+  }));
   volumeSeries.setData(formattedVolumeData);
 }
 
@@ -323,12 +525,7 @@ function buildIndex(indexChart, indexKline) {
       tooltip.style.top = (param.point.y + offsetY) + 'px';
     }
   });
-}
-
-function convertToTimestamp(time_key) {
-  const date = new Date(time_key);
-  const utc8Time = date.getTime() + 8 * 60 * 60 * 1000; // 加上8小时的偏移
-  return utc8Time;
+  return mainSeries;
 }
 
 function buildMa(indexChart, indexKline) {
@@ -379,6 +576,7 @@ function buildMa(indexChart, indexKline) {
   ma20Series.setData(ma20Data);
   ma50Series.setData(ma50Data);
   ma200Series.setData(ma200Data);
+  return {ma5Series,ma10Series,ma20Series,ma50Series,ma200Series};
 }
 
 
