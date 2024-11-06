@@ -91,6 +91,14 @@ export function App() {
   const [error, setError] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState('HK.800000');
   const [chartData, setChartData] = useState([]);
+  const [maVisibility, setMaVisibility] = useState({
+    ma5: true,
+    ma10: true,
+    ma20: true,
+    ma50: true,
+    ma200: true,
+  });
+
   const chartDataRef = useRef(chartData);
   const mainChartRef = useRef(null); // 使用 useRef 来存储 mainChart
   const breadthChartRef = useRef(null);
@@ -104,7 +112,18 @@ export function App() {
   const breadthSeriesRef = useRef(null);
   const weekSeriesRef = useRef(null);
   const weekChartRef = useRef(null);
+  const maVisibilityRef = useRef(maVisibility);
 
+  useEffect(() => {
+    maVisibilityRef.current = maVisibility;
+    if (mainChartRef.current) {
+      const a = [{key:'ma5',series:ma5SeriesRef.current},{key:'ma10',series:ma10SeriesRef.current},{key:'ma20',series:ma20SeriesRef.current},{key:'ma50',series:ma50SeriesRef.current},{key:'ma200',series:ma200SeriesRef.current}];
+      a.forEach((item) => {
+        item.series.applyOptions({ visible: maVisibility[item.key] });
+      });
+    }
+    
+  }, [maVisibility]);
 
 
   useEffect(() => {
@@ -210,7 +229,6 @@ export function App() {
   }, [chartData]);
 
   useEffect(() => {
-    console.log('selected changed',selectedIndex);
     const fetchChartData = async (index, startDate, endDate) => {
       const response = await fetch(`http://127.0.0.1:5000/api/index_kline?index=${index}&start_date=${startDate}&end_date=${endDate}`);
       if (!response.ok) {
@@ -261,6 +279,73 @@ export function App() {
 
     const debouncedLoadMoreData = _.debounce(loadMoreData, 1000);
 
+    function buildMainChart(mainChart) {
+      const mainSeries = buildIndex(mainChart);
+      const {ma5Series,ma10Series,ma20Series,ma50Series,ma200Series} = buildMa(mainChart);
+      const volumeSeries = buildVolume(mainChart);
+      
+      mainChart.subscribeCrosshairMove((param) => {
+        const tooltip = document.getElementById('tooltip');
+        if (!param || !param.time || !param.point) {
+          tooltip.style.display = 'none';
+          return;
+        }
+      
+        const price = param.seriesData.get(mainSeries);
+        const ma5Price = param.seriesData.get(ma5Series);
+        const ma10Price = param.seriesData.get(ma10Series);
+        const ma20Price = param.seriesData.get(ma20Series);
+        const ma50Price = param.seriesData.get(ma50Series);
+        const ma200Price = param.seriesData.get(ma200Series);
+        const volume = param.seriesData.get(volumeSeries);
+    
+        if (price) {
+          const { open, high, low, close } = price;
+          let tooltipContent = `
+            <div>开盘价: ${open}</div>
+            <div>最高价: ${high}</div>
+            <div>最低价: ${low}</div>
+            <div>收盘价: ${close}</div>
+          `;
+          const maVisibility = maVisibilityRef.current;
+          
+          if (maVisibility.ma5 && ma5Price) {
+            tooltipContent += `<div>MA5: ${ma5Price.value}</div>`;
+          }
+    
+          if (maVisibility.ma10 && ma10Price) {
+            tooltipContent += `<div>MA10: ${ma10Price.value}</div>`;
+          }
+    
+          if (maVisibility.ma20 && ma20Price) {
+            tooltipContent += `<div>MA20: ${ma20Price.value}</div>`;
+          }
+    
+          if (maVisibility.ma50 && ma50Price) {
+            tooltipContent += `<div>MA50: ${ma50Price.value}</div>`;
+          }
+    
+          if (maVisibility.ma200 && ma200Price) {
+            tooltipContent += `<div>MA200: ${ma200Price.value}</div>`;
+          }
+    
+          if (volume) {
+            tooltipContent += `<div>成交量: ${volume.value}</div>`;
+          }
+    
+    
+          tooltip.innerHTML = tooltipContent;
+          tooltip.style.display = 'block';
+    
+          // 确保工具提示不与鼠标重叠
+          const offsetX = 10;
+          const offsetY = 10;
+          tooltip.style.left = (param.point.x + offsetX) + 'px';
+          tooltip.style.top = (param.point.y + offsetY) + 'px';
+        }
+      });
+      return {mainSeries,ma5Series,ma10Series,ma20Series,ma50Series,ma200Series,volumeSeries};
+    }
     const initializeChart = async (index) => {
 
       try {
@@ -401,6 +486,11 @@ export function App() {
     setSelectedIndex(event.target.value);
   };
 
+  const handleMaVisibilityChange = (event) => {
+    const { name, checked } = event.target;
+    setMaVisibility((prev) => ({ ...prev, [name]: checked }));
+  };
+
   if (isLoading) {
     return <div>加载中...</div>;
   }
@@ -415,6 +505,53 @@ export function App() {
         <option value="HK.800000">恒生指数</option>
         <option value="HK.800700">恒生科技指数</option>
       </select>
+      <div>
+        <label>
+          <input
+            type="checkbox"
+            name="ma5"
+            checked={maVisibility.ma5}
+            onChange={handleMaVisibilityChange}
+          />
+          MA5
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="ma10"
+            checked={maVisibility.ma10}
+            onChange={handleMaVisibilityChange}
+          />
+          MA10
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="ma20"
+            checked={maVisibility.ma20}
+            onChange={handleMaVisibilityChange}
+          />
+          MA20
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="ma50"
+            checked={maVisibility.ma50}
+            onChange={handleMaVisibilityChange}
+          />
+          MA50
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="ma200"
+            checked={maVisibility.ma200}
+            onChange={handleMaVisibilityChange}
+          />
+          MA200
+        </label>
+      </div>
       <div ref={chartContainerRef}>
         <div id="index-chart"></div>
         <div id="breadth-chart"></div>
@@ -448,71 +585,6 @@ function convertToTimestamp(time_key) {
   return utc8Time;
 }
 
-function buildMainChart(mainChart) {
-  const mainSeries = buildIndex(mainChart);
-  const {ma5Series,ma10Series,ma20Series,ma50Series,ma200Series} = buildMa(mainChart);
-  const volumeSeries = buildVolume(mainChart);
-  
-  mainChart.subscribeCrosshairMove((param) => {
-    const tooltip = document.getElementById('tooltip');
-    if (!param || !param.time || !param.point) {
-      tooltip.style.display = 'none';
-      return;
-    }
-  
-    const price = param.seriesData.get(mainSeries);
-    const ma5Price = param.seriesData.get(ma5Series);
-    const ma10Price = param.seriesData.get(ma10Series);
-    const ma20Price = param.seriesData.get(ma20Series);
-    const ma50Price = param.seriesData.get(ma50Series);
-    const ma200Price = param.seriesData.get(ma200Series);
-    const volume = param.seriesData.get(volumeSeries);
-
-    if (price) {
-      const { open, high, low, close } = price;
-      let tooltipContent = `
-        <div>开盘价: ${open}</div>
-        <div>最高价: ${high}</div>
-        <div>最低价: ${low}</div>
-        <div>收盘价: ${close}</div>
-      `;
-
-      if (ma5Price) {
-        tooltipContent += `<div>MA5: ${ma5Price.value}</div>`;
-      }
-
-      if (ma10Price) {
-        tooltipContent += `<div>MA10: ${ma10Price.value}</div>`;
-      }
-
-      if (ma20Price) {
-        tooltipContent += `<div>MA20: ${ma20Price.value}</div>`;
-      }
-
-      if (ma50Price) {
-        tooltipContent += `<div>MA50: ${ma50Price.value}</div>`;
-      }
-
-      if (ma200Price) {
-        tooltipContent += `<div>MA200: ${ma200Price.value}</div>`;
-      }
-
-      if (volume) {
-        tooltipContent += `<div>成交量: ${volume.value}</div>`;
-      }
-
-      tooltip.innerHTML = tooltipContent;
-      tooltip.style.display = 'block';
-
-      // 确保工具提示不与鼠标重叠
-      const offsetX = 10;
-      const offsetY = 10;
-      tooltip.style.left = (param.point.x + offsetX) + 'px';
-      tooltip.style.top = (param.point.y + offsetY) + 'px';
-    }
-  });
-  return {mainSeries,ma5Series,ma10Series,ma20Series,ma50Series,ma200Series,volumeSeries};
-}
 
 function build52WeekChart(weekChart) {
   const netHighLowSeries = weekChart.addHistogramSeries();
@@ -565,41 +637,41 @@ function buildIndex(indexChart) {
 
 function buildMa(indexChart) {
   const ma5Series = indexChart.addLineSeries({
-    color: '#FF0000', // 红色
+    color: '#FF0000',
     lineWidth: 2,
     title: 'MA5',
     priceScaleId: 'ma5',
   });
 
   const ma10Series = indexChart.addLineSeries({
-    color: '#00FF00', // 绿色
+    color: '#00FF00',
     lineWidth: 2,
     title: 'MA10',
     priceScaleId: 'ma10',
   });
 
   const ma20Series = indexChart.addLineSeries({
-    color: '#0000FF', // 蓝色
+    color: '#0000FF',
     lineWidth: 2,
     title: 'MA20',
     priceScaleId: 'ma20',
   });
 
   const ma50Series = indexChart.addLineSeries({
-    color: '#FFA500', // 橙色
+    color: '#FFA500',
     lineWidth: 2,
     title: 'MA50',
     priceScaleId: 'ma50',
   });
 
   const ma200Series = indexChart.addLineSeries({
-    color: '#800080', // 紫色
+    color: '#800080',
     lineWidth: 2,
     title: 'MA200',
     priceScaleId: 'ma200',
   });
 
-  return {ma5Series,ma10Series,ma20Series,ma50Series,ma200Series};
+  return { ma5Series, ma10Series, ma20Series, ma50Series, ma200Series };
 }
 
 
