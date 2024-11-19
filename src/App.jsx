@@ -2,20 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
 import './styles.css';
 import _ from 'lodash';
-
-function calculateMovingAverage(data, period) {
-  const movingAverage = [];
-  for (let i = 0; i < data.length; i++) {
-      if (i < period - 1) {
-          movingAverage.push({ time: Math.floor(convertToTimestamp(data[i].time_key) / 1000), value: null });
-          continue;
-      }
-      const sum = data.slice(i - period + 1, i + 1).reduce((acc, val) => acc + val.close, 0);
-      movingAverage.push({ time: Math.floor(convertToTimestamp(data[i].time_key) / 1000), value: sum / period });
-  }
-  return movingAverage;
-}
-
+import { API_BASE_URL } from './config/config';
 
 function calculate50DayBreadth(data) {
   const indexData = data.index;
@@ -129,52 +116,67 @@ export function App() {
   useEffect(() => {
     chartDataRef.current = chartData;
 
+    
     if (chartData.length > 0) {
       const indexData = chartData.flatMap(item => item.value.index).sort((a, b) => {
         const timeA = Date.parse(a.time_key);
         const timeB = Date.parse(b.time_key);
         return timeA - timeB;
       });
-
+      
       if (mainSeriesRef.current&&ma5SeriesRef.current&&ma10SeriesRef.current&&ma20SeriesRef.current&&ma50SeriesRef.current&&ma200SeriesRef.current) {
         const formattedData = cnvertToKLineData(indexData);
 
         mainSeriesRef.current.setData(formattedData);
         setVolumeSeries(indexData, volumeSeriesRef.current);
-        const ma5Data = calculateMovingAverage(indexData, 5);
+        const maData = chartDataRef.current.map(item => ({
+          time: Math.floor(convertToTimestamp(item.time_key) / 1000),
+          value: item.ma5
+        }));
+        ma5SeriesRef.current.setData(maData);
 
-        ma5SeriesRef.current.setData(ma5Data);
-        const ma10Data = calculateMovingAverage(indexData, 10);
+        const ma10Data = chartDataRef.current.map(item => ({
+          time: Math.floor(convertToTimestamp(item.time_key) / 1000),
+          value: item.ma10
+        }));
         ma10SeriesRef.current.setData(ma10Data);
-        const ma20Data = calculateMovingAverage(indexData, 20);
+
+        const ma20Data = chartDataRef.current.map(item => ({
+          time: Math.floor(convertToTimestamp(item.time_key) / 1000),
+          value: item.ma20
+        }));
         ma20SeriesRef.current.setData(ma20Data);
-        const ma50Data = calculateMovingAverage(indexData, 50);
+
+        const ma50Data = chartDataRef.current.map(item => ({
+          time: Math.floor(convertToTimestamp(item.time_key) / 1000),
+          value: item.ma50
+        }));
         ma50SeriesRef.current.setData(ma50Data);
-        const ma200Data = calculateMovingAverage(indexData, 200);
+
+        const ma200Data = chartDataRef.current.map(item => ({
+          time: Math.floor(convertToTimestamp(item.time_key) / 1000),
+          value: item.ma200
+        }));
         ma200SeriesRef.current.setData(ma200Data);
-        const constituentsData = chartData.flatMap(item => Object.entries(item.value.constituents))
-          .reduce((acc, [key, valueArray]) => {
-            if (!acc[key]) {
-              acc[key] = [];
-            }
-            acc[key] = acc[key].concat(valueArray);
-            return acc;
-        }, {});
     
-
-        for (const key in constituentsData) {
-          constituentsData[key].sort((a, b) => {
-            const timeA = Date.parse(a.time_key);
-             const timeB = Date.parse(b.time_key);
-            return timeA - timeB;
-          });
-        }
-
-        const data = {index: indexData, constituents: constituentsData}
-        const breadthData = calculate50DayBreadth(data);
-
+        const breadthData = chartDataRef.current.flatMap(item => item.value.breadth).sort((a, b) => {
+          const timeA = Date.parse(a.time_key);
+          const timeB = Date.parse(b.time_key);
+          return timeA - timeB;
+        }).map(item => ({
+          time: Math.floor(convertToTimestamp(item.date) / 1000),
+          value: item.value
+        }));
+        console.log(breadthData,'breadthData');
         breadthSeriesRef.current.setData(breadthData);
-        const weekData = calculateNetHighLow(data);
+        const weekData = chartData.flatMap(item => item.value.net_high_low).sort((a, b) => {
+          const timeA = Date.parse(a.time_key);
+          const timeB = Date.parse(b.time_key);
+          return timeA - timeB;
+        }).map(item => ({
+          time: Math.floor(convertToTimestamp(item.date) / 1000),
+          value: item.value
+        }));
         weekSeriesRef.current.setData(weekData);
       
         function getCrosshairDataPoint(series, param) {
@@ -230,7 +232,9 @@ export function App() {
 
   useEffect(() => {
     const fetchChartData = async (index, startDate, endDate) => {
-      const response = await fetch(`http://127.0.0.1:5000/api/index_kline?index=${index}&start_date=${startDate}&end_date=${endDate}`);
+      
+      const API_BASE_URL = 'http://127.0.0.1:5000';
+      const response = await fetch(`${API_BASE_URL}/api/index_kline?index=${index}&start_date=${startDate}&end_date=${endDate}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
