@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
 import './styles.css';
 import _ from 'lodash';
-import { API_BASE_URL } from './config/config';
 
 function calculate50DayBreadth(data) {
   const indexData = data.index;
