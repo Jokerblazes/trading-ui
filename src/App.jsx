@@ -128,49 +128,63 @@ export function App() {
 
         mainSeriesRef.current.setData(formattedData);
         setVolumeSeries(indexData, volumeSeriesRef.current);
-        const maData = chartDataRef.current.map(item => ({
+        console.log(chartDataRef.current,'=====');
+
+        const maData = indexData.map(item => ({
           time: Math.floor(convertToTimestamp(item.time_key) / 1000),
-          value: item.ma5
+          value: parseFloat(item.ma.ma_5)
         }));
         ma5SeriesRef.current.setData(maData);
 
-        const ma10Data = chartDataRef.current.map(item => ({
+        const ma10Data = indexData.map(item => ({
           time: Math.floor(convertToTimestamp(item.time_key) / 1000),
-          value: item.ma10
+          value: parseFloat(item.ma.ma_10)
         }));
         ma10SeriesRef.current.setData(ma10Data);
 
-        const ma20Data = chartDataRef.current.map(item => ({
+        const ma20Data = indexData.map(item => ({
           time: Math.floor(convertToTimestamp(item.time_key) / 1000),
-          value: item.ma20
+          value: parseFloat(item.ma.ma_20)
         }));
         ma20SeriesRef.current.setData(ma20Data);
 
-        const ma50Data = chartDataRef.current.map(item => ({
+        const ma50Data = indexData.map(item => ({
           time: Math.floor(convertToTimestamp(item.time_key) / 1000),
-          value: item.ma50
+          value: parseFloat(item.ma.ma_50)
         }));
         ma50SeriesRef.current.setData(ma50Data);
 
-        const ma200Data = chartDataRef.current.map(item => ({
+        const ma200Data = indexData.map(item => ({
           time: Math.floor(convertToTimestamp(item.time_key) / 1000),
-          value: item.ma200
+          value: parseFloat(item.ma.ma_200)
         }));
+
         ma200SeriesRef.current.setData(ma200Data);
-    
-        const breadthData = chartDataRef.current.flatMap(item => item.value.breadth).sort((a, b) => {
-          const timeA = Date.parse(a.time_key);
-          const timeB = Date.parse(b.time_key);
+        // if (chartData.length>1) {
+        //   const a = chartData[1].value.breadth.sort((a, b) => {
+        //     const timeA = Date.parse(a.time_key);
+        //     const timeB = Date.parse(b.time_key);
+        //     return timeA - timeB;
+        //   }).map(item => ({
+        //     time: Math.floor(convertToTimestamp(item.date) / 1000),
+        //     value: item.value
+        //   }));
+        //   console.log(a,'breadthData');
+        //   breadthSeriesRef.current.setData(a);
+        // }
+        const breadthData = chartData.flatMap(item => item.value.breadth).sort((a, b) => {
+          const timeA = Date.parse(a.date);
+          const timeB = Date.parse(b.date);
           return timeA - timeB;
         }).map(item => ({
           time: Math.floor(convertToTimestamp(item.date) / 1000),
           value: item.value
         }));
-        console.log(breadthData,'breadthData');
+
         breadthSeriesRef.current.setData(breadthData);
         const weekData = chartData.flatMap(item => item.value.net_high_low).sort((a, b) => {
-          const timeA = Date.parse(a.time_key);
-          const timeB = Date.parse(b.time_key);
+          const timeA = Date.parse(a.date);
+          const timeB = Date.parse(b.date);
           return timeA - timeB;
         }).map(item => ({
           time: Math.floor(convertToTimestamp(item.date) / 1000),
