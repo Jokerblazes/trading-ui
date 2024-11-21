@@ -1,7 +1,7 @@
 {
-  "name": "react-parcel-starter",
+  "name": "trading-ui",
   "version": "1.0.1",
-  "description": "This is a minimal React starter project. Only React and React DOM have been installed",
+  "description": "This is an app to visualize the health of HK stock market",
   "main": "src/index.html",
   "scripts": {
     "start": "parcel src/index.html",
@@ -9,21 +9,7 @@
     "watch": "parcel watch src/index.html",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/brandiqa/react-parcel-starter.git"
-  },
-  "keywords": [
-    "React",
-    "Parcel",
-    "Starter"
-  ],
-  "author": "Michael Wanyoike",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/brandiqa/react-parcel-starter/issues"
-  },
-  "homepage": "https://github.com/brandiqa/react-parcel-starter#readme",
+  "author": "Chengdong Zheng",
   "browserslist": [
     "last 1 Chrome version"
   ],
