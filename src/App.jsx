@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
-import LandingPage from './LandingPage'; // 假设 LandingPage 在同一目录下
-import MainApp from './MainApp'; // 这是你现有的应用组件
+import React, { useState, useEffect } from 'react';
+import LandingPage from './LandingPage';
+import MainApp from './MainApp';
 
 function App() {
   const [emailSubmitted, setEmailSubmitted] = useState(false);
 
+  useEffect(() => {
+    const isEmailSubmitted = localStorage.getItem('emailSubmitted') === 'true';
+    setEmailSubmitted(isEmailSubmitted);
+  }, []);
+
   const handleEmailSubmit = (email) => {
     console.log('用户邮箱:', email);
     setEmailSubmitted(true);
+    localStorage.setItem('emailSubmitted', 'true');
   };
 
   return (
