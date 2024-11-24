@@ -246,7 +246,7 @@ function MainApp() {
   useEffect(() => {
     const fetchChartData = async (index, startDate, endDate) => {
       
-      const API_BASE_URL = 'https:trading-data-nine.vercel.app';
+      const API_BASE_URL = 'http://127.0.0.1:5000';
       const response = await fetch(`${API_BASE_URL}/api/index_kline?index=${index}&start_date=${startDate}&end_date=${endDate}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

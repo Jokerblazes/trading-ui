@@ -2,11 +2,29 @@ import React, { useState } from 'react';
 
 function LandingPage({ onEmailSubmit }) {
   const [email, setEmail] = useState('');
+  const [error, setError] = useState(null);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     if (email) {
-      onEmailSubmit(email);
+      try {
+        const response = await fetch('http://127.0.0.1:5000/api/email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 'email': email }),
+        });
+
+        if (response.ok || response.status === 200) {
+          onEmailSubmit(email);
+        } else {
+          throw new Error('Failed to store email');
+        }
+      } catch (err) {
+        setError('Failed to store email, please try again later.');
+        console.error(err);
+      }
     }
   };
 
@@ -26,6 +44,7 @@ function LandingPage({ onEmailSubmit }) {
           Enter
         </button>
       </form>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
     </div>
   );
 }
