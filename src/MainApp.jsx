@@ -128,7 +128,6 @@ function MainApp() {
 
         mainSeriesRef.current.setData(formattedData);
         setVolumeSeries(indexData, volumeSeriesRef.current);
-        console.log(chartDataRef.current,'=====');
 
         const maData = indexData.map(item => ({
           time: Math.floor(convertToTimestamp(item.time_key) / 1000),
@@ -246,8 +245,7 @@ function MainApp() {
   useEffect(() => {
     const fetchChartData = async (index, startDate, endDate) => {
       
-      const API_BASE_URL = 'http://127.0.0.1:5000';
-      const response = await fetch(`${API_BASE_URL}/api/index_kline?index=${index}&start_date=${startDate}&end_date=${endDate}`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/index_kline?index=${index}&start_date=${startDate}&end_date=${endDate}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
