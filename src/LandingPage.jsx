@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './LandingPage.css';
 
 function LandingPage({ onEmailSubmit }) {
   const [email, setEmail] = useState('');
@@ -29,22 +30,27 @@ function LandingPage({ onEmailSubmit }) {
   };
 
   return (
-    <div style={{ textAlign: 'center', marginTop: '50px' }}>
-      <h1>Welcome to HK Trading</h1>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="email"
-          placeholder="Please enter your email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{ padding: '10px', width: '300px' }}
-        />
-        <button type="submit" style={{ padding: '10px 20px', marginLeft: '10px' }}>
-          Enter
-        </button>
-      </form>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+    <div className="landing-container">
+      <div className="content-box">
+        <h1 className="title">Welcome to HK Trading</h1>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="email"
+            placeholder="Please enter your email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="email-input"
+          />
+          <button 
+            type="submit" 
+            className="submit-button"
+          >
+            Enter
+          </button>
+        </form>
+        {error && <p className="error-message">{error}</p>}
+      </div>
     </div>
   );
 }
