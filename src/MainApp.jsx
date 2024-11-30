@@ -572,61 +572,69 @@ function MainApp() {
   }
 
   return (
-    <div>
-      <select id="index-selector" onChange={handleIndexChange} value={selectedIndex}>
-        <option value="HK.800000">恒生指数</option>
-        <option value="HK.800700">恒生科技指数</option>
-      </select>
-      <div>
-        <label>
-          <input
-            type="checkbox"
-            name="ma5"
-            checked={maVisibility.ma5}
-            onChange={handleMaVisibilityChange}
-          />
-          MA5
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="ma10"
-            checked={maVisibility.ma10}
-            onChange={handleMaVisibilityChange}
-          />
-          MA10
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="ma20"
-            checked={maVisibility.ma20}
-            onChange={handleMaVisibilityChange}
-          />
-          MA20
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="ma50"
-            checked={maVisibility.ma50}
-            onChange={handleMaVisibilityChange}
-          />
-          MA50
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="ma200"
-            checked={maVisibility.ma200}
-            onChange={handleMaVisibilityChange}
-          />
-          MA200
-        </label>
+    <div className="p-4 bg-white">
+      {/* 控制面板 */}
+      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-gray-50 rounded-lg shadow-sm">
+        {/* 指数选择器 */}
+        <div className="relative">
+          <select 
+            id="index-selector" 
+            onChange={handleIndexChange} 
+            value={selectedIndex}
+            className="appearance-none bg-white border border-gray-300 rounded-md px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:border-blue-500 transition-colors"
+          >
+            <option value="HK.800000">恒生指数</option>
+            <option value="HK.800700">恒生科技指数</option>
+          </select>
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+
+        {/* MA 选项组 */}
+        <div className="flex flex-wrap gap-4">
+          {[
+            { name: 'ma5', label: 'MA5', color: '#FF0000' },
+            { name: 'ma10', label: 'MA10', color: '#00FF00' },
+            { name: 'ma20', label: 'MA20', color: '#0000FF' },
+            { name: 'ma50', label: 'MA50', color: '#FFA500' },
+            { name: 'ma200', label: 'MA200', color: '#800080' }
+          ].map(({ name, label, color }) => (
+            <label key={name} className="flex items-center space-x-2 cursor-pointer">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  name={name}
+                  checked={maVisibility[name]}
+                  onChange={handleMaVisibilityChange}
+                  className="sr-only"
+                />
+                <div className={`
+                  w-4 h-4 border rounded
+                  ${maVisibility[name] ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300'}
+                  transition-colors duration-200
+                `}>
+                  {maVisibility[name] && (
+                    <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <span className="text-sm font-medium" style={{ color }}>
+                {label}
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
-      <div ref={chartContainerRef}>
-        <div id="index-chart"></div>
-        <div id="breadth-chart"></div>
+
+      {/* 图表容器 */}
+      <div ref={chartContainerRef} className="border rounded-lg shadow-sm">
+        <div id="index-chart" className="border-b"></div>
+        <div id="breadth-chart" className="border-b"></div>
         <div id="52week-chart"></div>
       </div>
     </div>
