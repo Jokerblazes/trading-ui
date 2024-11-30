@@ -70,6 +70,53 @@ function buildBreadthChart(chart) {
   }
 }
 
+// Loading 组件
+const LoadingSpinner = () => {
+  console.log('Loading Spinner Rendered'); // 添加日志
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999
+      }}
+    >
+      <div 
+        style={{
+          width: '64px',
+          height: '64px',
+          border: '8px solid #f3f3f3',
+          borderTop: '8px solid #3498db',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }}
+      />
+    </div>
+  );
+};
+
+// Error 组件
+const ErrorMessage = ({ message }) => (
+  <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-75">
+    <div className="bg-white p-8 rounded-lg shadow-lg max-w-md">
+      <div className="flex items-center mb-4">
+        <svg className="w-8 h-8 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <h2 className="text-xl font-semibold text-gray-800">出错了</h2>
+      </div>
+      <p className="text-gray-600">{message}</p>
+    </div>
+  </div>
+);
+
 function MainApp() {
 
   const chartContainerRef = useRef(null);
@@ -505,13 +552,23 @@ function MainApp() {
     const { name, checked } = event.target;
     setMaVisibility((prev) => ({ ...prev, [name]: checked }));
   };
-
+  const styles = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
   if (isLoading) {
-    return <div>加载中...</div>;
+    return (
+      <>
+        <style>{styles}</style>
+        <LoadingSpinner />
+      </>
+    );
   }
 
   if (error) {
-    return <div>错误: {error}</div>;
+    return <ErrorMessage message={error} />;
   }
 
   return (
