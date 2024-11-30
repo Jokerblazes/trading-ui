@@ -2,11 +2,10 @@
   "name": "trading-ui",
   "version": "1.0.1",
   "description": "This is an app to visualize the health of HK stock market",
-  "main": "src/index.js",
   "scripts": {
     "start": "env-cmd -f .env.development parcel src/index.html",
     "start:prod": "env-cmd -f .env.production parcel src/index.html",
-    "build": "env-cmd -f .env.production parcel build src/index.html",
+    "build": "parcel build src/index.html",
     "watch": "env-cmd -f .env.development parcel watch src/index.html",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
