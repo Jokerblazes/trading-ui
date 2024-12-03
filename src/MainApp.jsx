@@ -3,60 +3,6 @@ import { createChart, ColorType } from 'lightweight-charts';
 import './styles.css';
 import _ from 'lodash';
 
-function calculate50DayBreadth(data) {
-  const indexData = data.index;
-  const constituentsData = data.constituents;
-  
-  const breadthData = indexData.map((point, index) => {
-      const previousClose = index > 0 ? indexData[index - 1].close : point.close;
-      const isIndexUp = point.close > previousClose;
-
-      const count = Object.values(constituentsData).filter(stockData => stockData[index] != undefined).filter(stockData => {
-          const stockPoint = stockData[index];
-          const ma = calculateMovingAverage(stockData, 50)[index];
-          
-          const ma50 = ma.value;
-          return isIndexUp ? stockPoint.close > ma50 : stockPoint.close < ma50;
-      }).length;
-
-      const proportion = count / Object.keys(constituentsData).length;
-      return {
-        time: Math.floor(convertToTimestamp(point.time_key) / 1000),
-        value: isIndexUp ? proportion : -proportion,
-    };
-  });
-
-  return breadthData;
-}
-
-function calculateNetHighLow(data) {
-  const indexData = data.index;
-  const constituentsData = data.constituents;
-  const highLowData = calculate52WeekHighLow(constituentsData);
-
-  const netHighLow = indexData.map((point) => {
-    
-      const date = point.time_key // 将时间标准化为日期字符串
-      
-      const dailyData = highLowData.get(date) || {};
-    
-      const highCount = dailyData.filter(stockPoint => {
-        return stockPoint.isNewHigh
-      }).length;
-
-      const lowCount = dailyData.filter(stockPoint => {
-        return stockPoint.isNewLow;
-      }).length;
-
-      return {
-          time: Math.floor(convertToTimestamp(point.time_key) / 1000),
-          value: highCount - lowCount,
-      };
-  });
-
-  return netHighLow;
-}
-
 
 function buildBreadthChart(chart) {
   const breadthSeries = chart.addLineSeries();         
@@ -206,18 +152,6 @@ function MainApp() {
         }));
 
         ma200SeriesRef.current.setData(ma200Data);
-        // if (chartData.length>1) {
-        //   const a = chartData[1].value.breadth.sort((a, b) => {
-        //     const timeA = Date.parse(a.time_key);
-        //     const timeB = Date.parse(b.time_key);
-        //     return timeA - timeB;
-        //   }).map(item => ({
-        //     time: Math.floor(convertToTimestamp(item.date) / 1000),
-        //     value: item.value
-        //   }));
-        //   console.log(a,'breadthData');
-        //   breadthSeriesRef.current.setData(a);
-        // }
         const breadthData = chartData.flatMap(item => item.value.breadth).sort((a, b) => {
           const timeA = Date.parse(a.date);
           const timeB = Date.parse(b.date);
@@ -753,47 +687,6 @@ function buildMa(indexChart) {
   });
 
   return { ma5Series, ma10Series, ma20Series, ma50Series, ma200Series };
-}
-
-
-function calculate52WeekHighLow(stockData) {
-  const period = 52 * 5; // 假设每周5个交易日
-  const highLowData = new Map();
-
-  for (const [symbol, dailyData] of Object.entries(stockData)) {
-      const dateMap = new Map();
-      
-      // 将 dailyData 转换为 Map，以日期为键
-      for (const entry of Object.values(dailyData)) {
-          dateMap.set(entry.time_key, entry);
-      }
-
-      const dates = Array.from(dateMap.keys()).sort(); // 获取并排序日期
-
-      for (let i = 0; i < dates.length; i++) {
-          const date = dates[i];
-          const start = Math.max(0, i - period + 1);
-          const end = i + 1;
-          const periodDates = dates.slice(start, end);
-          const periodData = periodDates.map(d => dateMap.get(d));
-          const high52Week = Math.max(...periodData.map(d => d.high));
-          const low52Week = Math.min(...periodData.map(d => d.low));
-
-          if (!highLowData.has(date)) {
-              highLowData.set(date, []);
-          }
-
-          highLowData.get(date).push({
-              symbol,
-              ...dateMap.get(date),
-              high52Week,
-              low52Week,
-              isNewHigh: dateMap.get(date).high == high52Week ,
-              isNewLow: dateMap.get(date).low == low52Week ,
-          });
-      }
-  }
-  return highLowData;
 }
 
 
