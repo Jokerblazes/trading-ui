@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
 import './styles.css';
 import _ from 'lodash';
+import StockListModal from './components/StockListModal';
 
 
 function buildBreadthChart(chart) {
