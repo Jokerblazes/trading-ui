@@ -19,7 +19,6 @@ function buildBreadthChart(chart) {
 
 // Loading 组件
 const LoadingSpinner = () => {
-  console.log('Loading Spinner Rendered'); // 添加日志
   return (
     <div 
       style={{
@@ -78,6 +77,8 @@ function MainApp() {
     ma50: true,
     ma200: true,
   });
+  const [showModal, setShowModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const chartDataRef = useRef(chartData);
   const mainChartRef = useRef(null); // 使用 useRef 来存储 mainChart
@@ -220,6 +221,16 @@ function MainApp() {
           });
         }
       }
+    }
+
+    if (breadthSeriesRef.current && breadthChartRef.current) {
+      breadthChartRef.current.subscribeClick((param) => {
+        if (param.time) {
+          const date = new Date(param.time * 1000);
+          setSelectedDate(date.toISOString().split('T')[0]);
+          setShowModal(true);
+        }
+      });
     }
 
   }, [chartData]);
@@ -572,6 +583,15 @@ function MainApp() {
         <div id="breadth-chart" className="border-b"></div>
         <div id="52week-chart"></div>
       </div>
+      
+      {/* 添加 Modal */}
+      {showModal && (
+        <StockListModal 
+          date={selectedDate}
+          onClose={() => setShowModal(false)}
+          index={selectedIndex}
+        />
+      )}
     </div>
   );
 
